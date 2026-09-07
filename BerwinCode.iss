@@ -120,6 +120,102 @@ begin
     (CompareText(GetEnv('BERWINCODE_KEEPOPENCODE'), '1') = 0);
 end;
 
+var
+  MaintPage: TWizardPage;
+  RepairRadio, RemoveRadio, CloseRadio: TRadioButton;
+
+function BerwinUninstallKey(): String;
+begin
+  Result := 'Software\Microsoft\Windows\CurrentVersion\Uninstall\{3B1A2C4D-BerwinCode-1000-000000000001}_is1';
+end;
+
+function IsBerwinInstalled(): Boolean;
+begin
+  Result := RegKeyExists(HKCU, BerwinUninstallKey());
+end;
+
+function InstalledPath(): String;
+var
+  P: String;
+begin
+  Result := '';
+  if RegQueryStringValue(HKCU, BerwinUninstallKey(), 'Inno Setup: App Path', P) then
+    Result := P;
+end;
+
+function InstalledVersion(): String;
+var
+  V: String;
+begin
+  Result := 'unknown';
+  if RegQueryStringValue(HKCU, BerwinUninstallKey(), 'DisplayVersion', V) then
+    Result := V;
+end;
+
+procedure InitializeWizard();
+var
+  Info: TNewStaticText;
+begin
+  MaintPage := CreateCustomPage(wpWelcome, 'BerwinCode is already installed', 'Choose what Setup should do.');
+  Info := TNewStaticText.Create(MaintPage);
+  Info.Parent := MaintPage.Surface;
+  Info.Left := 0;
+  Info.Top := 8;
+  Info.Width := MaintPage.SurfaceWidth;
+  Info.AutoSize := True;
+  Info.Caption := 'Setup found BerwinCode ' + InstalledVersion() + ' on this PC.';
+  RepairRadio := TRadioButton.Create(MaintPage);
+  RepairRadio.Parent := MaintPage.Surface;
+  RepairRadio.Left := 0;
+  RepairRadio.Top := 40;
+  RepairRadio.Width := MaintPage.SurfaceWidth;
+  RepairRadio.Caption := '&Repair BerwinCode (reinstall over it)';
+  RepairRadio.Checked := True;
+  RemoveRadio := TRadioButton.Create(MaintPage);
+  RemoveRadio.Parent := MaintPage.Surface;
+  RemoveRadio.Left := 0;
+  RemoveRadio.Top := 64;
+  RemoveRadio.Width := MaintPage.SurfaceWidth;
+  RemoveRadio.Caption := 'Re&move BerwinCode from this PC';
+  CloseRadio := TRadioButton.Create(MaintPage);
+  CloseRadio.Parent := MaintPage.Surface;
+  CloseRadio.Left := 0;
+  CloseRadio.Top := 88;
+  CloseRadio.Width := MaintPage.SurfaceWidth;
+  CloseRadio.Caption := '&Close Setup (do nothing)';
+end;
+
+function ShouldSkipPage(PageID: Integer): Boolean;
+begin
+  Result := False;
+  if (MaintPage <> nil) and (PageID = MaintPage.ID) and (not IsBerwinInstalled()) then
+    Result := True;
+end;
+
+function NextButtonClick(CurPageID: Integer): Boolean;
+var
+  Code: Integer;
+  Unins: String;
+begin
+  Result := True;
+  if (MaintPage <> nil) and (CurPageID = MaintPage.ID) then begin
+    if RemoveRadio.Checked then begin
+      Unins := InstalledPath() + '\unins000.exe';
+      if FileExists(Unins) then
+        Exec(Unins, '/VERYSILENT /SUPPRESSMSGBOXES /NORESTART', '', SW_HIDE, ewWaitUntilTerminated, Code);
+      MsgBox('BerwinCode has been removed from this PC.', mbInformation, MB_OK);
+      WizardForm.Close;
+      Result := False;
+    end else if CloseRadio.Checked then begin
+      WizardForm.Close;
+      Result := False;
+    end else begin
+      if InstalledPath() <> '' then
+        WizardForm.DirEdit.Text := InstalledPath();
+    end;
+  end;
+end;
+
 procedure CurStepChanged(CurStep: TSetupStep);
 begin
   { Always remove stock opencode unless the owner opted out via flag/env. }
