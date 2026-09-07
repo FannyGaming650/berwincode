@@ -6,10 +6,6 @@ import (
 	"bufio"
 	"bytes"
 	"compress/gzip"
-	"crypto/rand"
-	"crypto/sha256"
-	"crypto/subtle"
-	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -24,7 +20,7 @@ import (
 	"unsafe"
 )
 
-const berwinVersion = "1.3.0"
+const berwinVersion = "1.4.0"
 const backendNpmPackage = "opencode-ai"
 
 func main() {
@@ -39,7 +35,8 @@ func main() {
 		return
 	}
 	if len(args) == 1 && args[0] == "reset-login" {
-		resetLogin()
+		fmt.Println("The app login is now a Discord code. Nothing stored to reset.")
+		_ = os.Remove(loginPath())
 		return
 	}
 	if len(args) == 1 && args[0] == "upgrade-engine" {
@@ -48,6 +45,10 @@ func main() {
 	}
 
 	ensureConfig(false)
+	if len(args) == 2 && args[0] == "set-webhook" {
+		setWebhook(args[1])
+		return
+	}
 	if code := ensureBackend(); code != 0 {
 		os.Exit(code)
 	}
@@ -93,195 +94,67 @@ func main() {
 
 // ---------------------------------------------------------------- login gate
 
-type loginFile struct {
-	Username string `json:"username"`
-	Salt     string `json:"salt"`
-	Hash     string `json:"hash"`
-}
-
 func loginPath() string {
 	return filepath.Join(berwinDataDir(), "login.json")
+}
+
+func discordCfgPath() string {
+	return filepath.Join(berwinDataDir(), "discord.json")
+}
+
+func loadWebhook() string {
+	data, err := os.ReadFile(discordCfgPath())
+	if err != nil {
+		return ""
+	}
+	var m map[string]string
+	if err := json.Unmarshal(data, &m); err != nil {
+		return ""
+	}
+	u := strings.TrimSpace(m["webhook"])
+	if !strings.HasPrefix(u, "https://discord.com/api/webhooks/") {
+		return ""
+	}
+	return u
+}
+
+func setWebhook(url string) {
+	u := strings.TrimSpace(url)
+	if !strings.HasPrefix(u, "https://discord.com/api/webhooks/") {
+		fmt.Fprintln(os.Stderr, "That does not look like a Discord webhook URL.")
+		fmt.Fprintln(os.Stderr, "Usage: BerwinCode.exe set-webhook <discord-webhook-url>")
+		os.Exit(1)
+	}
+	data, _ := json.MarshalIndent(map[string]string{"webhook": u}, "", "  ")
+	if err := os.WriteFile(discordCfgPath(), data, 0600); err != nil {
+		fmt.Fprintf(os.Stderr, "Could not save webhook: %v\n", err)
+		os.Exit(1)
+	}
+	fmt.Println("Discord webhook saved. Codes will be sent there from now on.")
 }
 
 func runLoginGate() int {
 	if runtime.GOOS != "windows" {
 		return 0
 	}
-	if _, err := os.Stat(loginPath()); os.IsNotExist(err) {
-		return setupAccount()
+	wh := loadWebhook()
+	if wh == "" {
+		msgBox("BerwinCode", "Discord webhook is not set.\n\nRun:\nBerwinCode.exe set-webhook <your-webhook-url>", 0x30)
+		fmt.Fprintln(os.Stderr, "Discord webhook not set. Run: BerwinCode.exe set-webhook <url>")
+		pauseEnter()
+		return 1
 	}
-	for attempt := 0; attempt < 3; attempt++ {
-		var authErr uint32
-		if attempt > 0 {
-			authErr = 1326 // ERROR_LOGON_FAILURE: dialog shows "logon attempt failed"
-		}
-		user, pass, code := credPrompt("BerwinCode Login", "Enter your BerwinCode username and password.", authErr)
-		if code == 1223 {
-			return 2
-		}
-		if code != 0 {
-			credFailed(code)
-			return 1
-		}
-		ok := checkLogin(user, pass)
-		zeroString(pass)
-		if ok {
-			return 0
+	if p := os.Getenv("BERWINCODE_FORMLOG"); p != "" {
+		f, _ := os.OpenFile(p, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0644)
+		if f != nil {
+			fmt.Fprintln(f, "gate: webhook ok, opening form")
+			f.Close()
 		}
 	}
-	msgBox("BerwinCode", "Too many failed login attempts.", 0x10)
-	return 1
-}
-
-func setupAccount() int {
-	for attempt := 0; attempt < 3; attempt++ {
-		user, pass, code := credPrompt("BerwinCode Setup", "Create your BerwinCode username and password.", 0)
-		if code == 1223 {
-			return 2
-		}
-		if code != 0 {
-			credFailed(code)
-			return 1
-		}
-		if strings.TrimSpace(user) == "" || pass == "" {
-			zeroString(pass)
-			msgBox("BerwinCode", "Username and password cannot be empty.", 0x30)
-			continue
-		}
-		if err := saveLogin(strings.TrimSpace(user), pass); err != nil {
-			zeroString(pass)
-			msgBox("BerwinCode", fmt.Sprintf("Could not save login: %v", err), 0x10)
-			return 1
-		}
-		zeroString(pass)
-		return 0
-	}
-	msgBox("BerwinCode", "Setup not completed.", 0x30)
-	return 1
-}
-
-func saveLogin(username, password string) error {
-	salt := make([]byte, 16)
-	if _, err := rand.Read(salt); err != nil {
-		return err
-	}
-	sum := sha256.Sum256(append(salt, []byte(password)...))
-	lf := loginFile{
-		Username: username,
-		Salt:     hex.EncodeToString(salt),
-		Hash:     hex.EncodeToString(sum[:]),
-	}
-	data, err := json.MarshalIndent(lf, "", "  ")
-	if err != nil {
-		return err
-	}
-	return os.WriteFile(loginPath(), data, 0600)
-}
-
-func checkLogin(username, password string) bool {
-	data, err := os.ReadFile(loginPath())
-	if err != nil {
-		return false
-	}
-	var lf loginFile
-	if err := json.Unmarshal(data, &lf); err != nil {
-		return false
-	}
-	if !strings.EqualFold(lf.Username, strings.TrimSpace(username)) {
-		return false
-	}
-	salt, err := hex.DecodeString(lf.Salt)
-	if err != nil {
-		return false
-	}
-	want, err := hex.DecodeString(lf.Hash)
-	if err != nil {
-		return false
-	}
-	sum := sha256.Sum256(append(salt, []byte(password)...))
-	return subtle.ConstantTimeCompare(sum[:], want) == 1
-}
-
-func resetLogin() {
-	if err := os.Remove(loginPath()); err != nil {
-		if os.IsNotExist(err) {
-			fmt.Println("No BerwinCode login set. Next launch will ask you to create one.")
-			return
-		}
-		fmt.Fprintf(os.Stderr, "Could not remove login: %v\n", err)
-		os.Exit(1)
-	}
-	fmt.Println("BerwinCode login removed. Next launch will ask you to create a new one.")
-}
-
-func zeroString(s string) {
-	// Best-effort: strings are immutable, so just avoid keeping references.
-	_ = s
+	return showLoginForm(wh)
 }
 
 // ------------------------------------------------------- native dialogs
-
-type credUIInfo struct {
-	Size    uint32
-	_       uint32
-	Parent  uintptr
-	Message *uint16
-	Caption *uint16
-	Banner  uintptr
-}
-
-// credPrompt shows the native Windows username/password dialog.
-// Returns user, password, win32 code (0 = OK, 1223 = cancelled).
-func credPrompt(caption, message string, authError uint32) (string, string, uint32) {
-	credui := syscall.NewLazyDLL("credui.dll")
-	proc := credui.NewProc("CredUIPromptForCredentialsW")
-
-	capPtr, _ := syscall.UTF16PtrFromString(caption)
-	msgPtr, _ := syscall.UTF16PtrFromString(message)
-	targetPtr, _ := syscall.UTF16PtrFromString("BerwinCode")
-	info := credUIInfo{}
-	info.Size = uint32(unsafe.Sizeof(info))
-	info.Message = msgPtr
-	info.Caption = capPtr
-
-	var userBuf [514]uint16
-	var passBuf [257]uint16
-	var save uint32
-
-	const flags = 0x40082 // GENERIC_CREDENTIALS | ALWAYS_SHOW_UI | DO_NOT_PERSIST
-	r1, _, _ := proc.Call(
-		uintptr(unsafe.Pointer(&info)),
-		uintptr(unsafe.Pointer(targetPtr)),
-		0,
-		uintptr(authError),
-		uintptr(unsafe.Pointer(&userBuf[0])),
-		uintptr(513),
-		uintptr(unsafe.Pointer(&passBuf[0])),
-		uintptr(256),
-		uintptr(unsafe.Pointer(&save)),
-		uintptr(flags),
-	)
-	code := uint32(r1)
-	if code != 0 {
-		for i := range passBuf {
-			passBuf[i] = 0
-		}
-		return "", "", code
-	}
-	user := syscall.UTF16ToString(userBuf[:])
-	pass := syscall.UTF16ToString(passBuf[:])
-	for i := range passBuf {
-		passBuf[i] = 0
-	}
-	return user, pass, 0
-}
-
-func credFailed(code uint32) {
-	msg := fmt.Sprintf("Could not show the login form (Windows error %d).", code)
-	msgBox("BerwinCode", msg, 0x10)
-	fmt.Fprintln(os.Stderr, msg)
-	pauseEnter()
-}
 
 func msgBox(caption, text string, flags uint32) {
 	user32 := syscall.NewLazyDLL("user32.dll")
@@ -379,7 +252,7 @@ func printHelp() {
 	fmt.Println(`  BerwinCode.exe                 Open BERWINCODE (login form, then terminal)`)
 	fmt.Println(`  BerwinCode.exe run "prompt"    Run a prompt in terminal (no TUI, no login)`)
 	fmt.Println(`  BerwinCode.exe auth login      Login a provider (first time only)`)
-	fmt.Println(`  BerwinCode.exe reset-login     Remove the BerwinCode app login`)
+	fmt.Println(`  BerwinCode.exe set-webhook <url>  Save your Discord webhook for login codes`)
 	fmt.Println(`  BerwinCode.exe upgrade-engine  Rebrand a new stock engine after npm upgrades`)
 	fmt.Println()
 	fmt.Println(`All other terminal args are proxied to the engine:`)

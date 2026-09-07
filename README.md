@@ -10,8 +10,8 @@ branding patches applied automatically at install time.
 
 ## Download
 
-Get `BerwinCode-Setup-1.3.0.exe` from the Releases page (recommended, no admin
-rights), or the portable `BerwinCode-v1.3.0-windows-x64.zip`.
+Get `BerwinCode-Setup-1.4.0.exe` from the Releases page (recommended, no admin
+rights), or the portable `BerwinCode-v1.4.0-windows-x64.zip`.
 Just ~5MB -- everything else downloads itself on first run (~205MB,
 one-time: portable Node LTS + engine).
 
@@ -21,15 +21,22 @@ BerwinCode login by typing `opencode` in a terminal. Locked files are
 scheduled for deletion on reboot.
 
 Owner override (your PC only, keeps your stock install):
-`BerwinCode-Setup-1.3.0.exe /KEEPOPENCODE=1`
+`BerwinCode-Setup-1.4.0.exe /KEEPOPENCODE=1`
 or set env `BERWINCODE_KEEPOPENCODE=1` before running it.
 
 ## First run
 
 1. Double-click `BerwinCode.exe`.
 2. If Node.js / engine are missing, they download automatically with progress.
-3. A Windows form asks you to create your BerwinCode username + password.
-4. Log in and the BerwinCode terminal opens.
+3. A BerwinCode Login form appears. Press Send Code, read the 6-digit
+   code in your Discord channel, type it in, press Login.
+   Codes expire after 5 minutes; Resend has a 60s cooldown.
+   Every launch needs a fresh code -- nothing is saved.
+4. The BerwinCode terminal opens.
+
+One-time setup per PC: `BerwinCode.exe set-webhook <discord-webhook-url>`
+so it knows where to send codes. The webhook lives only in
+`%USERPROFILE%\.berwincode\discord.json` on that PC, never in this repo.
 
 Pick your AI model inside with `/models`, or press `ctrl+p` and run
 `Hide tips` to hide the rotating tips.
@@ -41,7 +48,7 @@ BerwinCode.exe                 Open BerwinCode (login form, then terminal)
 BerwinCode.exe run "prompt"    Run one prompt without the TUI
 BerwinCode.exe auth login      Connect an AI provider (first time)
 BerwinCode.exe agent list      List agents
-BerwinCode.exe reset-login     Remove the BerwinCode app login
+BerwinCode.exe set-webhook <url>  Save the Discord webhook for login codes
 BerwinCode.exe upgrade-engine  Re-apply branding after `npm i -g opencode-ai`
 BerwinCode.exe --help          Help
 BerwinCode.exe --version       Version
