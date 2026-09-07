@@ -27,7 +27,7 @@ func psProfileDirs() []string {
 }
 
 func lockBlock() string {
-	msg := "The 'opencode' command is disabled on this PC. Use BerwinCode instead."
+	msg := "The 'opencode' command is disabled on this PC. Use BerwinCode.exe instead."
 	return lockBegin + " (managed by BerwinCode, do not edit)\r\n" +
 		`function opencode { Write-Host "` + msg + `" -ForegroundColor Red }` + "\r\n" +
 		`function opencode.exe { Write-Host "` + msg + `" -ForegroundColor Red }` + "\r\n" +
@@ -175,8 +175,8 @@ func autoRunBakPath() string {
 func lockCmd() (bool, error) {
 	batch := cmdBatchPath()
 	content := "@echo off\r\n" +
-		"doskey opencode=echo The 'opencode' command is disabled on this PC. Use BerwinCode instead.\r\n" +
-		"doskey opencode.exe=echo The 'opencode' command is disabled on this PC. Use BerwinCode instead.\r\n"
+		"doskey opencode=echo The 'opencode' command is disabled on this PC. Use BerwinCode.exe instead.\r\n" +
+		"doskey opencode.exe=echo The 'opencode' command is disabled on this PC. Use BerwinCode.exe instead.\r\n"
 	_ = os.MkdirAll(berwinDataDir(), 0755)
 	if err := os.WriteFile(batch, []byte(content), 0644); err != nil {
 		return false, err
