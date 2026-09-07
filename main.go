@@ -20,7 +20,7 @@ import (
 	"unsafe"
 )
 
-const berwinVersion = "1.4.2"
+const berwinVersion = "1.4.3"
 const backendNpmPackage = "opencode-ai"
 
 func main() {
@@ -59,11 +59,17 @@ func main() {
 		os.Exit(code)
 	}
 
-	// Interactive TUI launch: hide terminal, show login form, no banner.
-	if len(args) == 0 && isConsole() {
-		hideConsole()
+	// Strict gate: every engine launch needs a fresh Discord verification.
+	// The TUI additionally hides the terminal while the form shows.
+	if runtime.GOOS == "windows" {
+		isTUI := len(args) == 0 && isConsole()
+		if isTUI {
+			hideConsole()
+		}
 		code := runLoginGate()
-		showConsole()
+		if isTUI {
+			showConsole()
+		}
 		if code == 2 {
 			fmt.Fprintln(os.Stderr, "Login cancelled.")
 			pauseEnter()
@@ -72,7 +78,9 @@ func main() {
 		if code != 0 {
 			os.Exit(code)
 		}
-		setTerminalTitle("BerwinCode")
+		if isTUI {
+			setTerminalTitle("BerwinCode")
+		}
 	}
 
 	backend, backendArgs, _ := resolveBackend(args)
@@ -256,7 +264,7 @@ func printHelp() {
 	printBanner()
 	fmt.Println(`Terminal-only usage:`)
 	fmt.Println(`  BerwinCode.exe                 Open BERWINCODE (login form, then terminal)`)
-	fmt.Println(`  BerwinCode.exe run "prompt"    Run a prompt in terminal (no TUI, no login)`)
+	fmt.Println(`  BerwinCode.exe run "prompt"    Run a prompt in terminal (needs verification)`)
 	fmt.Println(`  BerwinCode.exe auth login      Login a provider (first time only)`)
 	fmt.Println(`  BerwinCode.exe set-webhook <url>  Save your Discord webhook for login codes`)
 	fmt.Println(`  BerwinCode.exe upgrade-engine  Rebrand a new stock engine after npm upgrades`)
