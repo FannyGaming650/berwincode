@@ -1,0 +1,13 @@
+*.exe
+*.tmp
+node.zip.tmp
+engine.tgz.tmp
+logo_orig*.ts
+scan_*.py
+patch_*.py
+gen_*.py
+get_*.py
+fix_*.py
+add_*.py
+test.txt
+*.zip
