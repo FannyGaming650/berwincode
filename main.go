@@ -316,6 +316,10 @@ func buildEnv() []string {
 	if os.Getenv("OPENCODE_DISABLE_TERMINAL_TITLE") == "" {
 		env = append(env, "OPENCODE_DISABLE_TERMINAL_TITLE=true")
 	}
+	if os.Getenv("OPENCODE_DISABLE_MODELS_FETCH") == "" {
+		// Use the built-in rebranded catalog so provider names stay BerwinCode.
+		env = append(env, "OPENCODE_DISABLE_MODELS_FETCH=true")
+	}
 	env = append(env, "BERWINCODE=1")
 	env = append(env, "BERWINCODE_VERSION="+berwinVersion)
 	_ = runtime.GOOS

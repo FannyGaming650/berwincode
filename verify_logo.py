@@ -1,0 +1,10 @@
+b = open("C:\\Users\\Berwin Maniquiz\\.berwincode\\bin\\berwincode.exe", "rb").read()
+def esc(s):
+    return "".join(c if ord(c) < 128 else "\\u%04x" % ord(c) for c in s).encode("ascii")
+new_l1 = esc("             BERWIN")
+new_r1 = esc("CODE" + " " * 15)
+old_l1 = esc("      BERWIN       ")
+print("new L1BERWIN count:", sum(1 for _ in [0] if False) or b.count(new_l1))
+print("new R1CODE count:", b.count(new_r1))
+print("old L1 count:", b.count(old_l1))
+print("size ok:", len(b) == 179632680)
