@@ -227,6 +227,26 @@ func cmdUpgrade(interactive bool) int {
 	return 0
 }
 
+func maybeAutoUpdate() {
+	tag, setupURL, pageURL, ok := checkForUpdate()
+	if !ok {
+		return
+	}
+	fmt.Fprintf(os.Stderr, "BerwinCode %s found - updating automatically...\n", tag)
+	if setupURL == "" {
+		fmt.Fprintf(os.Stderr, "No installer found. Get it here: %s\n", pageURL)
+		return
+	}
+	dst := filepath.Join(os.TempDir(), "BerwinCode-"+strings.TrimPrefix(tag, "v")+"-setup.exe")
+	if err := downloadFile(setupURL, dst); err != nil {
+		fmt.Fprintf(os.Stderr, "Auto-update download failed: %v\nContinuing with v%s.\n", err, berwinVersion)
+		return
+	}
+	_ = exec.Command(dst).Start()
+	fmt.Fprintln(os.Stderr, "BerwinCode: installer started, closing so it can update. Reopen BerwinCode after.")
+	os.Exit(0)
+}
+
 func maybeOfferUpdate() {
 	tag, _, pageURL, ok := checkForUpdate()
 	if !ok {

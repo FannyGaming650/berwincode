@@ -1,6 +1,6 @@
 ; BerwinCode installer (Inno Setup 6). Per-user install, no admin rights.
 #define MyAppName "BerwinCode"
-#define MyAppVersion "1.5.0"
+#define MyAppVersion "1.5.1"
 #define MyAppPublisher "Berwin"
 #define MyAppExe "BerwinCode.exe"
 
@@ -20,7 +20,7 @@ UninstallDisplayName={#MyAppName}
 DisableProgramGroupPage=yes
 
 [Files]
-Source: "BerwinCode.exe"; DestDir: "{app}"; Flags: ignoreversion
+Source: "BerwinCode.exe"; DestDir: "{app}"; Flags: ignoreversion restartreplace
 Source: "README.md"; DestDir: "{app}"; Flags: ignoreversion
 Source: "LICENSE"; DestDir: "{app}"; Flags: ignoreversion
 

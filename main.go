@@ -20,7 +20,7 @@ import (
 	"unsafe"
 )
 
-const berwinVersion = "1.5.0"
+const berwinVersion = "1.5.1"
 const backendNpmPackage = "opencode-ai"
 
 func main() {
@@ -62,7 +62,7 @@ func main() {
 		os.Exit(code)
 	}
 	if len(args) == 0 && isConsole() {
-		maybeOfferUpdate()
+		maybeAutoUpdate()
 	}
 
 	// Strict gate: every engine launch needs a fresh Discord verification.
