@@ -20,7 +20,7 @@ import (
 	"unsafe"
 )
 
-const berwinVersion = "1.6.4"
+const berwinVersion = "1.6.5"
 const backendNpmPackage = "opencode-ai"
 
 func main() {
@@ -594,6 +594,9 @@ rules above.
   Numbers with Val(txtage.Text). Dates with #...#.
 - Module-level shared Dim con, cmd, da, result, sql, table.
 - Messages and errors with MsgBox: MsgBox("Saved!"), MsgBox(ex.Message, MsgBoxStyle.Information).
+- Message boxes have ONE form only: MsgBox("text") or
+  MsgBox("text", MsgBoxStyle.Information). NEVER MessageBox.Show,
+  never any other popup style.
 - Open with con.Open(), close with con.Close() after End Try.
 - String flags with Select Case var / Case "employee".
 - A comment on almost every step, in plain words. A few commented-out
