@@ -20,7 +20,7 @@ import (
 	"unsafe"
 )
 
-const berwinVersion = "1.6.1"
+const berwinVersion = "1.6.2"
 const backendNpmPackage = "opencode-ai"
 
 func main() {
@@ -556,24 +556,34 @@ rules above.
   follows the system being built (example: menu left, big title top,
   entry fields + grid below, Save/Clear buttons at the bottom).
 
+### D. Design lives in Designer files only
+- Every control is placed in Visual Studio drag-drop. All creation,
+  positions, sizes, and colors live in .Designer.vb and .resx ONLY.
+- NEVER write New Button/TextBox, Controls.Add, .Location, .Size, or
+  .BackColor in event code. Code-behind sets VALUES only
+  (Text, DataSource, Visible, Checked).
+
 ### B. Code lives IN THE FORMS, a little messy is correct
 - Write working code directly inside the form events
   (Button1_Click, Form_Load). Long straightforward handlers are GOOD.
-- Do NOT create new Helper/Module/Class files for simple tasks.
+- NEVER create mod/ folders or separate handler modules (db, crud,
+  select helpers) for NEW systems. All connection strings, SQL, and
+  logic live inline in the form events, even if repeated per form.
+  Use Module files ONLY when recoding a project that already has them.
 - Do NOT split code into many small functions. Over-organizing is what
   professionals do; beginners keep everything in the same form.
 - Copy-paste repetition is FINE. Never refactor to remove duplication.
 - Only use a helper file if the project already has one. Never invent
   new abstractions, regions, or layers.
 
-### C. Code texture: write like the payroll project
+### C. Code texture: write like the payroll project (shapes, not files)
 - Control names: defaults are fine (Button1, TextBox1) or simple ones
   (txtname, btnsave). Classic handler header:
   Private Sub Button1_Click(ByVal sender As System.Object, ByVal e As System.EventArgs) Handles Button1.Click
-- Database: one Module db with a myconn() function returning
-  New OleDb.OleDbConnection("Provider=...;Data Source=" & Application.StartupPath & "\file.mdb").
-  One Module crud with nearly identical insert/update/delete/subs taking
-  (ByVal sql As String), using With cmd / .Connection / .CommandText.
+- Database in new systems: NO Module files. Every form holds its own
+  Dim con As New OleDb.OleDbConnection("Provider=...;Data Source=" & Application.StartupPath & "\file.mdb")
+  and runs SQL inline with local With cmd blocks. Study payroll mod\db
+  and mod\crud for the query SHAPES, then inline them per form.
 - SQL built with & and .Text values: "select * from tbluser where name ='" & txtname.Text & "'".
   Numbers with Val(txtage.Text). Dates with #...#.
 - Module-level shared Dim con, cmd, da, result, sql, table.
@@ -694,9 +704,10 @@ with no code changes are exempt.
 
 When the user asks for an ENTIRE system, deliver ALL of it: every form
 designed, every code file written, the database file with all tables,
-project file included: the .sln solution file, the .vbproj project
-file, every .vb form with its .Designer.vb and .resx. Simple style,
-but nothing missing.
+project file included. Skeleton FIRST, like VotingSys: one system
+folder with the .sln at its root, the .vbproj, My Project folder,
+then every form as .vb plus its .Designer.vb plus .resx, then code,
+then the database file, then build. Simple style, but nothing missing.
 - Design every screen in the plain old VB look from this file.
 - Write every event: all buttons, all loads, all searches, all grids.
   No TODO, no stubs, no unwired buttons, no "left as exercise".

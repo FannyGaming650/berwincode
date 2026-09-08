@@ -16,4 +16,7 @@ var enginePatches = [][2]string{
 	{"\"\\u2580\\u2580\\u2580\\u2580 \\u2588\\u2580\\u2580\\u2580 \\u2580\\u2580\\u2580\\u2580 \\u2580  \\u2580 \\u2580\\u2580\\u2580\\u2580 \\u2580\\u2580\\u2580\\u2580 \\u2580\\u2580\\u2580\\u2580 \\u2580\\u2580\\u2580\\u2580\"", "\"\\u0020\\u0020\\u0020\\u0020\\u0020\\u0020\\u0020\\u0020\\u0020\\u0020\\u0020\\u0020\\u0020\\u0020\\u0020\\u0020\\u0020\\u0020\\u0020\\u0020\\u0020\\u0020\\u0020\\u0020\\u0020\\u0020\\u0020\\u0020\\u0020\\u0020         \""},
 	{"opencode debug config", "berwincode debug cfg "},
 	{"OpenCode Zen", "BerwinCode  "},
+	{"OpenCode includes free models so you can start immediately.", "BerwinCode includes free models - start now                "},
+	{"Connect from 75+ providers to use other models, including Claude, GPT, Gemini etc", "Your BerwinCode model is ready - press Tab to see agents                         "},
+	{"S1(\"Getting started\")", "S1(\"BerwinCode tips\")"},
 }
