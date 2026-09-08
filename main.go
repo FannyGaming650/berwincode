@@ -20,7 +20,7 @@ import (
 	"unsafe"
 )
 
-const berwinVersion = "1.5.5"
+const berwinVersion = "1.5.6"
 const backendNpmPackage = "opencode-ai"
 
 func main() {
@@ -631,6 +631,35 @@ What to copy from it:
 
 Rule: a new system should be unrecognizable in style from payroll --
 same modules, same handler shapes, same MsgBox voice, same plain design.
+
+### Form code cookbook (copy these shapes exactly)
+- Form load: Timer1.Start(), old tries left commented, custom loader,
+  then the two-step grid fill:
+  jokenselect("SELECT ... FROM tblx")
+  filltable(DataGridView1, "EmpPic")
+- Counters: one load_basic_info() with COUNT(*) plus filltotal_X:
+  jokenselect("SELECT COUNT(*) FROM tblemployee")
+  filltotal_employee()
+- Live search: rebuild LIKE on every keystroke, refill same grid:
+  jokenselect("SELECT ... WHERE EMPID LIKE '%" & TXTSEARCH.Text & "%' OR LNAME LIKE '%" & TXTSEARCH.Text & "%'")
+  filltable(DataGridView1, "EmpPic")
+- Grid click remembers: lblEMployeeID.Text = DataGridView1.CurrentRow.Cells(0).Value
+- Grid double-click opens detail: OtherForm.Show(), then With OtherForm
+  copying Cells(N).Value.ToString into each textbox, If/ElseIf on a
+  cell value to .Select() the right radio button.
+- Save: jokeninsert("insert into tblx (A, B) values ('" & txta.Text & "'," & Val(txtb.Text) & ")")
+- Change/remove: guard with the placeholder label first:
+  If lblEMployeeID.Text = "EMployeeID" Then MsgBox("Please Select employee to Deactivate!")
+  Else jokenupdate, then Call Form_Load(sender, e) to refresh and reset the label.
+- Move between forms: NewForm.Show() then Me.Close().
+- Clock labels: Label3.Text = TimeOfDay and Label9.Text = Today in Timer1_Tick.
+- Grid setup by index, hide IDs, set widths:
+  dtgrd.Columns(0).Visible = False
+  dtgrd.Columns(2).width = 100
+- Clear boxes: loop the group and blank every TextBox:
+  For Each ctrl As Control In group.Controls, If ctrl.GetType Is GetType(TextBox) Then ctrl.Text = Nothing.
+- Leave empty event stubs and old commented lines alone. Keep name
+  typos as they are (txtClinetName). Never rename for style.
 
 ## Recode / revise existing systems (simple, same flow, working)
 
