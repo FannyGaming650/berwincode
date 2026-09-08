@@ -20,7 +20,7 @@ import (
 	"unsafe"
 )
 
-const berwinVersion = "1.5.3"
+const berwinVersion = "1.5.4"
 const backendNpmPackage = "opencode-ai"
 
 func main() {
@@ -588,7 +588,10 @@ beginner-human voice below.
 When the user asks for a NEW system, first study this real beginner
 project, then build the new system to look and read exactly like it:
 
-  C:\Users\Berwin Maniquiz\Desktop\payrollsystem\Ichiban
+  reference\payrollsystem\Ichiban inside your BerwinCode config folder
+  (%USERPROFILE%\.config\berwincode\reference\payrollsystem\Ichiban).
+  The installer puts it there on every PC, so never use a personal
+  Desktop path for the reference
 
 What to copy from it:
 - Design: gray classic forms, default buttons, menu on the left, big

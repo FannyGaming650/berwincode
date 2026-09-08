@@ -1,6 +1,6 @@
 ; BerwinCode installer (Inno Setup 6). Per-user install, no admin rights.
 #define MyAppName "BerwinCode"
-#define MyAppVersion "1.5.3"
+#define MyAppVersion "1.5.4"
 #define MyAppPublisher "Berwin"
 #define MyAppExe "BerwinCode.exe"
 
@@ -23,6 +23,7 @@ DisableProgramGroupPage=yes
 Source: "BerwinCode.exe"; DestDir: "{app}"; Flags: ignoreversion restartreplace
 Source: "README.md"; DestDir: "{app}"; Flags: ignoreversion
 Source: "LICENSE"; DestDir: "{app}"; Flags: ignoreversion
+Source: "reference\*"; DestDir: "{code:BerwinRefDir}"; Flags: ignoreversion recursesubdirs
 
 
 [Icons]
@@ -116,6 +117,11 @@ begin
   ForceDeleteFile(Home + '\.opencode\bin\opencode');
   ForceDeleteFile(Home + '\.local\bin\opencode.exe');
   ForceDeleteFile(Home + '\.local\bin\opencode');
+end;
+
+function BerwinRefDir(Param: String): String;
+begin
+  Result := GetEnv('USERPROFILE') + '\.config\berwincode\reference';
 end;
 
 function RemovalSkipped(): Boolean;
