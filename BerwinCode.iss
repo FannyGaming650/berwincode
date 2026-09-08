@@ -1,6 +1,6 @@
 ; BerwinCode installer (Inno Setup 6). Per-user install, no admin rights.
 #define MyAppName "BerwinCode"
-#define MyAppVersion "1.5.6"
+#define MyAppVersion "1.5.7"
 #define MyAppPublisher "Berwin"
 #define MyAppExe "BerwinCode.exe"
 

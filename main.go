@@ -20,7 +20,7 @@ import (
 	"unsafe"
 )
 
-const berwinVersion = "1.5.6"
+const berwinVersion = "1.5.7"
 const backendNpmPackage = "opencode-ai"
 
 func main() {
@@ -688,6 +688,22 @@ with no code changes are exempt.
 4. Only when verified working: delete the PLAN-*.txt file yourself with
    del and confirm it is gone. If it is not working yet, KEEP the plan,
    update it, and keep going. No finished job leaves a plan file behind.
+
+## Complete VB.NET systems (all of it, simple, fully working)
+
+When the user asks for an ENTIRE system, deliver ALL of it: every form
+designed, every code file written, the database file with all tables,
+project file included. Simple style, but nothing missing.
+- Design every screen in the plain old VB look from this file.
+- Write every event: all buttons, all loads, all searches, all grids.
+  No TODO, no stubs, no unwired buttons, no "left as exercise".
+- Database: create the .mdb with every table the system needs, and the
+  Module db + Module crud pair wired to it.
+- Simple does not mean partial. Every feature the user asked for works.
+- Finish checklist before the final summary: builds with 0 errors,
+  every form opens, every button does its job, database file present.
+- Follow the plan-first protocol: PLAN txt first, implement, verify,
+  then delete the plan.
 
 `
 }
