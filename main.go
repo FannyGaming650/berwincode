@@ -65,9 +65,11 @@ func main() {
 		maybeAutoUpdate()
 	}
 
-	// Strict gate: every engine launch needs a fresh Discord verification.
+	// Strict gate: TUI and run need a fresh Discord verification.
+	// Management commands (auth, models, agent list...) stay ungated.
 	// The TUI additionally hides the terminal while the form shows.
-	if runtime.GOOS == "windows" {
+	needsGate := len(args) == 0 || (len(args) > 0 && args[0] == "run")
+	if runtime.GOOS == "windows" && needsGate {
 		isTUI := len(args) == 0 && isConsole()
 		if isTUI {
 			hideConsole()
