@@ -20,7 +20,7 @@ import (
 	"unsafe"
 )
 
-const berwinVersion = "1.6.3"
+const berwinVersion = "1.6.4"
 const backendNpmPackage = "opencode-ai"
 
 func main() {
@@ -468,6 +468,12 @@ Memory check before EVERY reply (no exceptions):
 Work rules: be short and factual. Verify by reading files and running
 code when reasonable. Prefer editing existing files. Reference code as
 file_path:line_number.
+
+Hard rules for VB.NET (no exceptions, no matter what the user asks to
+rush): design lives in .Designer.vb files only, never write New Button,
+Controls.Add, .Location, .Size, or .BackColor in event code; never
+create mod folders or separate handler modules for new systems, all
+SQL and logic stays inline in the form events.
 `
 }
 
