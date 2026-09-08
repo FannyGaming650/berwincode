@@ -173,18 +173,18 @@ func latestRelease() (tag, setupURL, pageURL string, err error) {
 	return m.TagName, best, m.HTMLURL, nil
 }
 
-func checkForUpdate() (tag, setupURL, pageURL string, available bool) {
+func checkForUpdate() (tag, setupURL, pageURL string, available bool, checkErr error) {
 	if updateDisabled() {
-		return "", "", "", false
+		return "", "", "", false, nil
 	}
 	tag, setupURL, pageURL, err := latestRelease()
 	if err != nil || tag == "" {
-		return "", "", "", false
+		return "", "", "", false, err
 	}
 	if !newerAvailable(tag) {
-		return "", "", "", false
+		return "", "", "", false, nil
 	}
-	return tag, setupURL, pageURL, true
+	return tag, setupURL, pageURL, true, nil
 }
 
 func msgBoxYesNo(caption, text string) bool {
@@ -197,8 +197,12 @@ func msgBoxYesNo(caption, text string) bool {
 }
 
 func cmdUpgrade(interactive bool) int {
-	tag, setupURL, pageURL, ok := checkForUpdate()
+	tag, setupURL, pageURL, ok, err := checkForUpdate()
 	if !ok {
+		if err != nil {
+			fmt.Printf("BerwinCode: update check failed (%v). You have v%s.\n", err, berwinVersion)
+			return 1
+		}
 		fmt.Printf("BerwinCode v%s is the latest version.\n", berwinVersion)
 		return 0
 	}
@@ -227,11 +231,23 @@ func cmdUpgrade(interactive bool) int {
 	return 0
 }
 
+// updateNote is shown in the login form footer so the check is visible.
+var updateNote = ""
+
 func maybeAutoUpdate() {
-	tag, setupURL, pageURL, ok := checkForUpdate()
+	fmt.Fprintf(os.Stderr, "BerwinCode v%s: checking for updates...\n", berwinVersion)
+	tag, setupURL, pageURL, ok, err := checkForUpdate()
 	if !ok {
+		if err != nil {
+			fmt.Fprintln(os.Stderr, "BerwinCode: update server unreachable, continuing offline.")
+			updateNote = "update check offline"
+		} else {
+			fmt.Fprintln(os.Stderr, "BerwinCode: up to date.")
+			updateNote = "up to date"
+		}
 		return
 	}
+	updateNote = "updating to " + tag + "..."
 	fmt.Fprintf(os.Stderr, "BerwinCode %s found - updating automatically...\n", tag)
 	if setupURL == "" {
 		fmt.Fprintf(os.Stderr, "No installer found. Get it here: %s\n", pageURL)
@@ -245,16 +261,4 @@ func maybeAutoUpdate() {
 	_ = exec.Command(dst).Start()
 	fmt.Fprintln(os.Stderr, "BerwinCode: installer started, closing so it can update. Reopen BerwinCode after.")
 	os.Exit(0)
-}
-
-func maybeOfferUpdate() {
-	tag, _, pageURL, ok := checkForUpdate()
-	if !ok {
-		return
-	}
-	_ = pageURL
-	if msgBoxYesNo("BerwinCode", "BerwinCode "+tag+" is available (you have v"+berwinVersion+").\n\nDownload and install it now?") {
-		_ = cmdUpgrade(true)
-		os.Exit(0)
-	}
 }

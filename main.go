@@ -20,7 +20,7 @@ import (
 	"unsafe"
 )
 
-const berwinVersion = "1.6.0"
+const berwinVersion = "1.6.1"
 const backendNpmPackage = "opencode-ai"
 
 func main() {

@@ -119,6 +119,7 @@ var (
 	sendHwnd   uintptr
 	loginHwnd  uintptr
 	statusHwnd uintptr
+	footHwnd   uintptr
 	formExit   = 1
 	wndProcCb  = syscall.NewCallback(wndProc)
 )
@@ -216,6 +217,11 @@ func showLoginForm(webhook string) (code int) {
 	sendHwnd = makeCtl("BUTTON", "Send Code", base|wsTabStop, 16, 94, 150, 30, formHwnd, idcSend, hInst)
 	loginHwnd = makeCtl("BUTTON", "Login", base|wsTabStop|0x00000001, 198, 94, 150, 30, formHwnd, idcLogin, hInst)
 	statusHwnd = makeCtl("STATIC", "", base, 16, 134, 332, 44, formHwnd, 0, hInst)
+	note := updateNote
+	if note == "" {
+		note = "starting"
+	}
+	footHwnd = makeCtl("STATIC", "BerwinCode v"+berwinVersion+" - "+note, base, 16, 186, 332, 16, formHwnd, 0, hInst)
 	le, _, _ := modK32.NewProc("GetLastError").Call()
 	flog(fmt.Sprintf("ctl edit=%d send=%d login=%d status=%d lasterr=%d", editHwnd, sendHwnd, loginHwnd, statusHwnd, le))
 	if editHwnd == 0 || sendHwnd == 0 {
@@ -226,6 +232,7 @@ func showLoginForm(webhook string) (code int) {
 	place(sendHwnd)
 	place(loginHwnd)
 	place(statusHwnd)
+	place(footHwnd)
 	flog("fonts-ok")
 	pSendMsg.Call(editHwnd, emSetLimit, 6, 0)
 	flog("limit-ok")
