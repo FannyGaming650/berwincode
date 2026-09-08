@@ -20,7 +20,7 @@ import (
 	"unsafe"
 )
 
-const berwinVersion = "1.5.2"
+const berwinVersion = "1.5.3"
 const backendNpmPackage = "opencode-ai"
 
 func main() {
@@ -459,7 +459,11 @@ Memory check before EVERY reply (no exceptions):
    .opencode/skills.
 2. If the task touches VB.NET, apply the beginner-human voice from
    BERWINCODE.md: plain old design, code inside the forms, payroll style.
-3. Only then plan and write your output.
+3. Plan-first protocol for any code-changing task: write PLAN-<topic>.txt
+   in the project root first (numbered steps, plain words), implement
+   exactly it, verify working, then delete the plan file with del and
+   confirm it is gone. Keep the plan only while the work is unfinished.
+4. Only then write your output.
 
 Work rules: be short and factual. Verify by reading files and running
 code when reasonable. Prefer editing existing files. Reference code as
@@ -620,6 +624,20 @@ exists:
 - One file at a time: rewrite, build, confirm working, then next file.
 - Never "simplify" by deleting features. Simple means easy to read,
   not less capable.
+
+## Plan-first protocol (system rule, always on)
+
+For every task that creates or changes code files (new system, new
+feature, recode, revise, multi-file edits). Questions and explanations
+with no code changes are exempt.
+1. BEFORE touching any code, write the plan to a plain text file in
+   the project root: PLAN-<short-topic>.txt with numbered steps and
+   the files each step touches. Plain words, beginner style.
+2. Implement exactly what the plan says, in order.
+3. Verify it works (build with 0 errors, every button still does its job).
+4. Only when verified working: delete the PLAN-*.txt file yourself with
+   del and confirm it is gone. If it is not working yet, KEEP the plan,
+   update it, and keep going. No finished job leaves a plan file behind.
 
 `
 }
