@@ -34,9 +34,12 @@ or set env `BERWINCODE_KEEPOPENCODE=1` before running it.
    Every launch needs a fresh code -- nothing is saved.
 4. The BerwinCode terminal opens.
 
-One-time setup per PC: `BerwinCode.exe set-webhook <discord-webhook-url>`
-so it knows where to send codes. The webhook lives only in
-`%USERPROFILE%\.berwincode\discord.json` on that PC, never in this repo.
+A Discord webhook is built into the exe, so a fresh PC works with no
+setup. Optional override per PC: `BerwinCode.exe set-webhook
+<discord-webhook-url>` (saved to `%USERPROFILE%\.berwincode\discord.json`,
+or set env `BERWINCODE_WEBHOOK`). Note: the built-in webhook URL is public
+(it lives in this repo and in the exe), so keep it on a dedicated
+login-codes channel and rotate it if abused.
 
 Pick your AI model inside with `/models`, or press `ctrl+p` and run
 `Hide tips` to hide the rotating tips.
@@ -48,7 +51,7 @@ BerwinCode.exe                 Open BerwinCode (login form, then terminal)
 BerwinCode.exe run "prompt"    Run one prompt without the TUI
 BerwinCode.exe auth login      Connect an AI provider (first time)
 BerwinCode.exe agent list      List agents
-BerwinCode.exe set-webhook <url>  Save the Discord webhook for login codes
+BerwinCode.exe set-webhook <url>  Override the built-in Discord webhook on this PC
 BerwinCode.exe upgrade-engine  Re-apply branding after `npm i -g opencode-ai`
 BerwinCode.exe --help          Help
 BerwinCode.exe --version       Version

@@ -128,20 +128,32 @@ func discordCfgPath() string {
 	return filepath.Join(berwinDataDir(), "discord.json")
 }
 
+// builtInWebhook ships inside the exe so a fresh PC works with no setup.
+// Priority: BERWINCODE_WEBHOOK env > discord.json (set-webhook) > built-in.
+// WARNING: this URL is public (visible in the repo and extractable from the
+// exe). Use a dedicated login-codes channel and rotate the webhook if abused.
+const builtInWebhook = "https://discord.com/api/webhooks/1546540402910437486/kmMXbpV6WgcImXH7Y5PQ239zk-ZkE_JMrKUSRmES-cMQX08ITTsDYAFMTdCVreavgY_v"
+
+func validWebhook(u string) bool {
+	return strings.HasPrefix(strings.TrimSpace(u), "https://discord.com/api/webhooks/")
+}
+
 func loadWebhook() string {
-	data, err := os.ReadFile(discordCfgPath())
-	if err != nil {
-		return ""
+	if v := strings.TrimSpace(os.Getenv("BERWINCODE_WEBHOOK")); validWebhook(v) {
+		return v
 	}
-	var m map[string]string
-	if err := json.Unmarshal(data, &m); err != nil {
-		return ""
+	if data, err := os.ReadFile(discordCfgPath()); err == nil {
+		var m map[string]string
+		if json.Unmarshal(data, &m) == nil {
+			if u := strings.TrimSpace(m["webhook"]); validWebhook(u) {
+				return u
+			}
+		}
 	}
-	u := strings.TrimSpace(m["webhook"])
-	if !strings.HasPrefix(u, "https://discord.com/api/webhooks/") {
-		return ""
+	if validWebhook(builtInWebhook) {
+		return strings.TrimSpace(builtInWebhook)
 	}
-	return u
+	return ""
 }
 
 func setWebhook(url string) {
@@ -156,7 +168,7 @@ func setWebhook(url string) {
 		fmt.Fprintf(os.Stderr, "Could not save webhook: %v\n", err)
 		os.Exit(1)
 	}
-	fmt.Println("Discord webhook saved. Codes will be sent there from now on.")
+	fmt.Println("Discord webhook saved. It overrides the built-in one on this PC.")
 }
 
 func runLoginGate() int {
@@ -278,7 +290,7 @@ func printHelp() {
 	fmt.Println(`  BerwinCode.exe                 Open BERWINCODE (login form, then terminal)`)
 	fmt.Println(`  BerwinCode.exe run "prompt"    Run a prompt in terminal (needs verification)`)
 	fmt.Println(`  BerwinCode.exe auth login      Login a provider (first time only)`)
-	fmt.Println(`  BerwinCode.exe set-webhook <url>  Save your Discord webhook for login codes`)
+	fmt.Println(`  BerwinCode.exe set-webhook <url>  Override the built-in Discord webhook on this PC`)
 	fmt.Println(`  BerwinCode.exe upgrade-engine  Rebrand a new stock engine after npm upgrades`)
 	fmt.Println(`  BerwinCode.exe lock-opencode    Block the opencode command in shells`)
 	fmt.Println(`  BerwinCode.exe unlock-opencode  Restore the opencode command`)
