@@ -20,7 +20,7 @@ import (
 	"unsafe"
 )
 
-const berwinVersion = "1.5.1"
+const berwinVersion = "1.5.2"
 const backendNpmPackage = "opencode-ai"
 
 func main() {
@@ -576,6 +576,48 @@ You have two memories. Check both before every reply:
   .opencode/skills.
 Plan the output only after the check. VB.NET work always uses the
 beginner-human voice below.
+
+## Reference implementation: payroll system (study before new systems)
+
+When the user asks for a NEW system, first study this real beginner
+project, then build the new system to look and read exactly like it:
+
+  C:\Users\Berwin Maniquiz\Desktop\payrollsystem\Ichiban
+
+What to copy from it:
+- Design: gray classic forms, default buttons, menu on the left, big
+  title on top, entry fields with labels, DataGridView results below,
+  plain Save/Clear/Delete buttons at the bottom.
+- mod\db.vb: the 6-line myconn() module returning the OleDb connection.
+- mod\crud.vb: the copy-pasted jokeninsert/jokenupdate/jokendelete subs
+  with With cmd blocks and MsgBox on result 0.
+- mod\jokensqlselect.vb: jokenfindthis(sql) + CheckX(var) with
+  Select Case for duplicate checks and grid filling.
+- frmlogin.vb: Dim sql at top, Button2_Click building
+  "select * ... where user='" & txt.Text & "'" then jokenfindthis +
+  checkresult.
+- payroll.vb: form-level Dim totals, live math in TextChanged with
+  Val(txt.Text), long If/ElseIf ladders for brackets, direct
+  txtResult.Text assignments, commented-out MsgBox debug lines.
+- Forms keep default control names (Button1, Button2) or simple txt/btn
+  names. Never rename into fancy conventions and never restyle.
+
+Rule: a new system should be unrecognizable in style from payroll --
+same modules, same handler shapes, same MsgBox voice, same plain design.
+
+## Recode / revise existing systems (simple, same flow, working)
+
+When the user asks to recode, revise, or simplify a system that already
+exists:
+- Keep the SAME flow: same screens, same buttons, same features, same
+  database tables. Nothing removed, nothing renamed for users.
+- The result must be FULLY WORKING: it builds with 0 errors and every
+  button does what it did before.
+- Make the CODE simpler: plain beginner style from this file (payroll
+  voice, code inside the forms). Same result, fewer hard parts.
+- One file at a time: rewrite, build, confirm working, then next file.
+- Never "simplify" by deleting features. Simple means easy to read,
+  not less capable.
 
 `
 }
