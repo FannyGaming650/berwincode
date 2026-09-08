@@ -20,7 +20,7 @@ import (
 	"unsafe"
 )
 
-const berwinVersion = "1.5.9"
+const berwinVersion = "1.6.0"
 const backendNpmPackage = "opencode-ai"
 
 func main() {
@@ -488,7 +488,8 @@ func defaultBerwinJSON() string {
     "opencode": {
       "whitelist": [
         "muse-spark-1.3-contributor-free"
-      ]
+      ],
+      "name": "Berwin"
     }
   },
   "command": {
@@ -693,7 +694,9 @@ with no code changes are exempt.
 
 When the user asks for an ENTIRE system, deliver ALL of it: every form
 designed, every code file written, the database file with all tables,
-project file included. Simple style, but nothing missing.
+project file included: the .sln solution file, the .vbproj project
+file, every .vb form with its .Designer.vb and .resx. Simple style,
+but nothing missing.
 - Design every screen in the plain old VB look from this file.
 - Write every event: all buttons, all loads, all searches, all grids.
   No TODO, no stubs, no unwired buttons, no "left as exercise".
