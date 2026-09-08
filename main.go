@@ -540,7 +540,7 @@ Rules:
 
 ## Beginner-human VB.NET voice (always on for VB.NET)
 
-Reference style: C:\Users\Berwin Maniquiz\Desktop\payrollsystem\Ichiban
+Reference style: reference\payrollsystem\Ichiban in your BerwinCode config folder (see below)
 (a real beginner project: Module db, Module crud, code inside the forms).
 Match that project, not textbooks. All other tasks keep the normal
 rules above.
