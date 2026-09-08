@@ -20,7 +20,7 @@ import (
 	"unsafe"
 )
 
-const berwinVersion = "1.6.5"
+const berwinVersion = "1.6.6"
 const backendNpmPackage = "opencode-ai"
 
 func main() {
@@ -784,11 +784,34 @@ You are BERWINCODE builder. Build, fix, and verify code. Keep changes minimal an
 func toolsDir() string { return filepath.Join(berwinDataDir(), "tools") }
 
 func portableNodeExe() string {
+	// unzipRoot strips the zip top folder, so node.exe sits directly here.
+	direct := filepath.Join(toolsDir(), "node", "node.exe")
+	if isFile(direct) {
+		return direct
+	}
+	// Fallback: some layouts keep one extra folder level.
 	matches, _ := filepath.Glob(filepath.Join(toolsDir(), "node", "*", "node.exe"))
-	if len(matches) > 0 {
-		return matches[0]
+	for _, m := range matches {
+		if isFile(m) {
+			return m
+		}
 	}
 	return ""
+}
+
+func isFile(p string) bool {
+	st, err := os.Stat(p)
+	return err == nil && !st.IsDir()
+}
+
+// nodeInstallComplete reports a usable portable install: node.exe plus npm.
+func nodeInstallComplete() bool {
+	exe := portableNodeExe()
+	if exe == "" {
+		return false
+	}
+	npm := filepath.Join(filepath.Dir(exe), "node_modules", "npm", "bin", "npm-cli.js")
+	return isFile(npm)
 }
 
 func haveSystemNode() bool {
@@ -816,9 +839,11 @@ func ensureNode() error {
 	if haveSystemNode() {
 		return nil
 	}
-	if portableNodeExe() != "" {
+	if nodeInstallComplete() {
 		return nil
 	}
+	// Stale or half-extracted copy from an older build: wipe and redo cleanly.
+	_ = os.RemoveAll(filepath.Join(toolsDir(), "node"))
 	ver, err := latestLTSNode()
 	if err != nil {
 		return fmt.Errorf("could not find Node LTS version: %w", err)
@@ -840,8 +865,9 @@ func ensureNode() error {
 		return fmt.Errorf("node extract failed: %w", err)
 	}
 	_ = os.Remove(tmp)
-	if portableNodeExe() == "" {
-		return fmt.Errorf("node installed but node.exe was not found")
+	if !nodeInstallComplete() {
+		_ = os.RemoveAll(filepath.Join(toolsDir(), "node"))
+		return fmt.Errorf("node extracted but looks incomplete, cleaned up to retry next launch")
 	}
 	fmt.Fprintln(os.Stderr, "BerwinCode: Node.js ready.")
 	return nil
