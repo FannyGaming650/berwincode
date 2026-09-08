@@ -6,12 +6,15 @@ package main
 // after 5 minutes, nothing is ever saved: every launch needs a code.
 
 import (
+	"bytes"
 	"crypto/rand"
 	"encoding/binary"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"os"
+	"runtime"
 	"strings"
 	"sync"
 	"syscall"
@@ -73,6 +76,7 @@ var (
 	pGetStockObj     = modGdi.NewProc("GetStockObject")
 	pGetSysMetrics   = modU32.NewProc("GetSystemMetrics")
 	pGetModuleHandle = modK32.NewProc("GetModuleHandleW")
+	pGetLastError    = modK32.NewProc("GetLastError")
 )
 
 type wndClassEx struct {
@@ -124,19 +128,28 @@ var (
 	wndProcCb  = syscall.NewCallback(wndProc)
 )
 
-var keepAlive [][]uint16
+var keepAlive []*uint16
 
 func wstr(s string) *uint16 {
-	b, _ := syscall.UTF16FromString(s)
-	keepAlive = append(keepAlive, b)
-	return &b[0]
+	p, _ := syscall.UTF16PtrFromString(s)
+	keepAlive = append(keepAlive, p)
+	runtime.KeepAlive(p)
+	return p
 }
 
 func setText(hwnd uintptr, s string) {
-	pSetText.Call(hwnd, uintptr(unsafe.Pointer(wstr(s))))
+	if hwnd == 0 {
+		return
+	}
+	p, _ := syscall.UTF16PtrFromString(s)
+	pSetText.Call(hwnd, uintptr(unsafe.Pointer(p)))
+	runtime.KeepAlive(p)
 }
 
 func enableCtl(hwnd uintptr, on bool) {
+	if hwnd == 0 {
+		return
+	}
 	v := uintptr(0)
 	if on {
 		v = 1
@@ -145,11 +158,15 @@ func enableCtl(hwnd uintptr, on bool) {
 }
 
 func makeCtl(className, text string, style uintptr, x, y, w, h int32, parent uintptr, id uintptr, hInst uintptr) uintptr {
+	cp, _ := syscall.UTF16PtrFromString(className)
+	tp, _ := syscall.UTF16PtrFromString(text)
 	r, _, _ := pCreateWindowEx.Call(0,
-		uintptr(unsafe.Pointer(wstr(className))),
-		uintptr(unsafe.Pointer(wstr(text))),
+		uintptr(unsafe.Pointer(cp)),
+		uintptr(unsafe.Pointer(tp)),
 		style, uintptr(x), uintptr(y), uintptr(w), uintptr(h),
 		parent, id, hInst, 0)
+	runtime.KeepAlive(cp)
+	runtime.KeepAlive(tp)
 	return r
 }
 
@@ -163,19 +180,29 @@ func flog(m string) {
 	}
 }
 
-// showLoginForm runs the modal login window. 0 = verified, 1 = give up.
+// showLoginForm runs the modal login window.
+// 0 = verified, 1 = error, 2 = user cancelled/closed.
 func showLoginForm(webhook string) (code int) {
+	// Win32 GUI must stay on one OS thread: without this the Go
+	// scheduler migrates the message loop and the form freezes/crashes.
+	runtime.LockOSThread()
+	defer runtime.UnlockOSThread()
 	code = 1
 	flog("enter")
+	vwebhook = webhook
+	vstate = &verifyState{}
+	formExit = 1
+	formHwnd, editHwnd, sendHwnd, loginHwnd, statusHwnd, footHwnd = 0, 0, 0, 0, 0, 0
 	defer func() {
 		if r := recover(); r != nil {
 			flog(fmt.Sprintf("PANIC: %v", r))
 			code = 1
+			if formHwnd != 0 {
+				pDestroyWindow.Call(formHwnd)
+				formHwnd = 0
+			}
 		}
 	}()
-	vwebhook = webhook
-	vstate = &verifyState{}
-	formExit = 1
 
 	hInst, _, _ := pGetModuleHandle.Call(0)
 	className := wstr("BerwinCodeLogin")
@@ -189,23 +216,35 @@ func showLoginForm(webhook string) (code int) {
 	wc.ClassName = className
 	atom, _, _ := pRegisterClassEx.Call(uintptr(unsafe.Pointer(&wc)))
 	flog(fmt.Sprintf("class-atom=%d", atom))
+	if atom == 0 {
+		le, _, _ := pGetLastError.Call()
+		if le != 1410 { // ERROR_CLASS_ALREADY_EXISTS: reuse existing class
+			flog(fmt.Sprintf("class-failed lasterror=%d", le))
+			return 1
+		}
+		flog("class-exists-reuse")
+	}
+	defer runtime.KeepAlive(className)
 
 	sw, _, _ := pGetSysMetrics.Call(0)
 	sh, _, _ := pGetSysMetrics.Call(1)
 	ww, wh := int32(380), int32(250)
 	fx, fy := (int32(sw)-ww)/2, (int32(sh)-wh)/2
 
+	titlePtr, _ := syscall.UTF16PtrFromString("BerwinCode Login")
 	formHwnd, _, _ = pCreateWindowEx.Call(0x00000001,
 		uintptr(unsafe.Pointer(className)),
-		uintptr(unsafe.Pointer(wstr("BerwinCode Login"))),
+		uintptr(unsafe.Pointer(titlePtr)),
 		0x00CA0000, uintptr(fx), uintptr(fy), uintptr(ww), uintptr(wh),
 		0, 0, hInst, 0)
+	runtime.KeepAlive(className)
+	runtime.KeepAlive(titlePtr)
 	if formHwnd == 0 {
-		le, _, _ := modK32.NewProc("GetLastError").Call()
+		le, _, _ := pGetLastError.Call()
 		flog(fmt.Sprintf("window-failed lasterror=%d", le))
 		return 1
 	}
-	flog(fmt.Sprintf("window=%d edit=%d send=%d login=%d status=%d", formHwnd, editHwnd, sendHwnd, loginHwnd, statusHwnd))
+	flog(fmt.Sprintf("window=%d", formHwnd))
 
 	font, _, _ := pGetStockObj.Call(17)
 	place := func(hwnd uintptr) {
@@ -222,9 +261,12 @@ func showLoginForm(webhook string) (code int) {
 		note = "starting"
 	}
 	footHwnd = makeCtl("STATIC", "BerwinCode v"+berwinVersion+" - "+note, base, 16, 186, 332, 16, formHwnd, 0, hInst)
-	le, _, _ := modK32.NewProc("GetLastError").Call()
+	le, _, _ := pGetLastError.Call()
 	flog(fmt.Sprintf("ctl edit=%d send=%d login=%d status=%d lasterr=%d", editHwnd, sendHwnd, loginHwnd, statusHwnd, le))
-	if editHwnd == 0 || sendHwnd == 0 {
+	if editHwnd == 0 || sendHwnd == 0 || loginHwnd == 0 || statusHwnd == 0 {
+		flog("ctl-failed-cleanup")
+		pDestroyWindow.Call(formHwnd)
+		formHwnd = 0
 		return 1
 	}
 	place(infoH)
@@ -258,14 +300,20 @@ func showLoginForm(webhook string) (code int) {
 			formExit = 1
 			break
 		}
-		dr, _, _ := pIsDialogMsg.Call(formHwnd, uintptr(unsafe.Pointer(&m)))
-		if dr != 0 {
-			continue
+		if formHwnd != 0 {
+			dr, _, _ := pIsDialogMsg.Call(formHwnd, uintptr(unsafe.Pointer(&m)))
+			if dr != 0 {
+				continue
+			}
 		}
 		pTranslateMsg.Call(uintptr(unsafe.Pointer(&m)))
 		pDispatchMsg.Call(uintptr(unsafe.Pointer(&m)))
 	}
-	pKillTimer.Call(formHwnd, 1)
+	hwnd := formHwnd
+	formHwnd = 0
+	if hwnd != 0 {
+		pKillTimer.Call(hwnd, 1)
+	}
 	return formExit
 }
 
@@ -283,7 +331,7 @@ func wndProc(hwnd, msg, wParam, lParam uintptr) uintptr {
 			return 0
 		}
 		if id == idCancel {
-			endForm(1)
+			endForm(2)
 			return 0
 		}
 	case wmTimer:
@@ -293,7 +341,7 @@ func wndProc(hwnd, msg, wParam, lParam uintptr) uintptr {
 		onSendResult(wParam == 1)
 		return 0
 	case wmClose:
-		endForm(1)
+		endForm(2)
 		return 0
 	case wmDestroy:
 		pPostQuit.Call(uintptr(formExit))
@@ -305,7 +353,9 @@ func wndProc(hwnd, msg, wParam, lParam uintptr) uintptr {
 
 func endForm(code int) {
 	formExit = code
-	pDestroyWindow.Call(formHwnd)
+	if formHwnd != 0 {
+		pDestroyWindow.Call(formHwnd)
+	}
 }
 
 func onSendCode() {
@@ -322,7 +372,8 @@ func onSendCode() {
 	vstate.Unlock()
 	setText(statusHwnd, "Sending code to Discord...")
 	enableCtl(sendHwnd, false)
-	go doSendCode()
+	hwnd := formHwnd
+	go doSendCode(hwnd)
 }
 
 func genCode() string {
@@ -334,7 +385,7 @@ func genCode() string {
 	return fmt.Sprintf("%06d", n)
 }
 
-func doSendCode() {
+func doSendCode(hwnd uintptr) {
 	code := genCode()
 	msg := map[string]string{
 		"content": "BerwinCode verification code: " + code + "\nIt expires in 5 minutes. If you did not ask for this, ignore it.",
@@ -342,9 +393,12 @@ func doSendCode() {
 	data, _ := json.Marshal(msg)
 	ok := false
 	client := &http.Client{Timeout: 30 * time.Second}
-	resp, err := client.Post(vwebhook, "application/json", strings.NewReader(string(data)))
-	if err == nil {
-		resp.Body.Close()
+	resp, err := client.Post(vwebhook, "application/json", bytes.NewReader(data))
+	if err == nil && resp != nil {
+		if resp.Body != nil {
+			_, _ = io.Copy(io.Discard, resp.Body)
+			resp.Body.Close()
+		}
 		ok = resp.StatusCode >= 200 && resp.StatusCode < 300
 	}
 	vstate.Lock()
@@ -360,7 +414,9 @@ func doSendCode() {
 	if ok {
 		b = 1
 	}
-	pPostMsg.Call(formHwnd, wmAppResult, b, 0)
+	if hwnd != 0 {
+		pPostMsg.Call(hwnd, wmAppResult, b, 0)
+	}
 }
 
 func onSendResult(ok bool) {
@@ -418,13 +474,13 @@ func onVerify() {
 		setText(statusHwnd, "Code expired. Press Resend Code.")
 		return
 	}
-	var buf [16]uint16
-	pGetText.Call(editHwnd, uintptr(unsafe.Pointer(&buf[0])), 16)
+	var buf [64]uint16
+	pGetText.Call(editHwnd, uintptr(unsafe.Pointer(&buf[0])), uintptr(len(buf)))
 	typed := strings.TrimSpace(syscall.UTF16ToString(buf[:]))
 	if typed == code {
 		endForm(0)
 		return
 	}
 	setText(statusHwnd, "Wrong code. Try again.")
-	pSendMsg.Call(editHwnd, emSetSel, 0, 0xFFFFFFFF)
+	pSendMsg.Call(editHwnd, emSetSel, 0, ^uintptr(0))
 }

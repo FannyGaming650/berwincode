@@ -84,6 +84,10 @@ func main() {
 			os.Exit(1)
 		}
 		if code != 0 {
+			fmt.Fprintln(os.Stderr, "Login failed. Please try again.")
+			if isTUI {
+				pauseEnter()
+			}
 			os.Exit(code)
 		}
 		if isTUI {
