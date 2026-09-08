@@ -20,7 +20,7 @@ import (
 	"unsafe"
 )
 
-const berwinVersion = "1.5.8"
+const berwinVersion = "1.5.9"
 const backendNpmPackage = "opencode-ai"
 
 func main() {
@@ -711,17 +711,16 @@ Every system uses Microsoft Access (.mdb) and nothing else, unless the
 user names another database. Never SQL Server, MySQL, or SQLite.
 - Connection always looks like this:
   Dim con As New OleDb.OleDbConnection("Provider=Microsoft.Jet.OLEDB.4.0;Data Source=" & Application.StartupPath & "\school.mdb")
-- The program creates the whole database by itself. First thing in
-  Form_Load, call CheckDatabase().
-- CheckDatabase does three plain steps:
-  1. dbfile = Application.StartupPath & "\school.mdb". If the file is
-     missing, create it with ADOX Catalog and MsgBox("Database created!").
-     (Project > Add Reference > COM > Microsoft ADO Ext. for DDL and Security.)
-  2. Open the connection and run one CREATE TABLE per table the system
-     needs. Plain fields: ID COUNTER PRIMARY KEY, short Text(50)
-     fields, Number fields, Date/Time fields.
-  3. Wrap each CREATE TABLE in its own Try/Catch that ignores errors:
-     error just means the table is already there. Then con.Close().
+- The program creates the whole database by itself, right inside
+  Form_Load. No separate helper sub, no CheckDatabase function --
+  beginners write it inline where the form opens:
+  Dim dbfile As String = Application.StartupPath & "\school.mdb"
+  If System.IO.File.Exists(dbfile) = False Then
+      Dim cat As New ADOX.Catalog()
+      cat.Create("Provider=Microsoft.Jet.OLEDB.4.0;Data Source=" & dbfile)
+      MsgBox("Database created!")
+  End If
+  (Project > Add Reference > COM > Microsoft ADO Ext. for DDL and Security.)
 - Set the project Target CPU to x86 (Project properties) so the Jet
   driver loads on 64-bit Windows, else the database will not open.
 - After that, normal payroll flow takes over: Module db myconn(),
