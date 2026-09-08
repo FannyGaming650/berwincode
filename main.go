@@ -20,7 +20,7 @@ import (
 	"unsafe"
 )
 
-const berwinVersion = "1.6.2"
+const berwinVersion = "1.6.3"
 const backendNpmPackage = "opencode-ai"
 
 func main() {
@@ -704,10 +704,20 @@ with no code changes are exempt.
 
 When the user asks for an ENTIRE system, deliver ALL of it: every form
 designed, every code file written, the database file with all tables,
-project file included. Skeleton FIRST, like VotingSys: one system
-folder with the .sln at its root, the .vbproj, My Project folder,
-then every form as .vb plus its .Designer.vb plus .resx, then code,
-then the database file, then build. Simple style, but nothing missing.
+project file included. Simple style, but nothing missing.
+
+### Solution (.sln) rule: exact folder format, skeleton FIRST
+Every system lives in its own folder shaped exactly like VotingSys:
+  SystemName folder holds SystemName.sln at its root.
+  Next to it: SystemName.vbproj and the My Project folder.
+  Every form is three files side by side: Name.vb plus
+  Name.Designer.vb plus Name.resx.
+  Database file (.mdb) sits beside the project, never in bin or obj.
+  No bin, no obj, no .vs folders are ever delivered.
+Build order, no skipping: folder plus sln plus vbproj first, then the
+forms with designers, then the code inside the forms, then the database
+file with all tables, then build with 0 errors. A system without its
+.sln at the root is unfinished, even if everything else works.
 - Design every screen in the plain old VB look from this file.
 - Write every event: all buttons, all loads, all searches, all grids.
   No TODO, no stubs, no unwired buttons, no "left as exercise".
