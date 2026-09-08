@@ -20,7 +20,7 @@ import (
 	"unsafe"
 )
 
-const berwinVersion = "1.4.3"
+const berwinVersion = "1.5.0"
 const backendNpmPackage = "opencode-ai"
 
 func main() {
@@ -43,6 +43,9 @@ func main() {
 		upgradeEngine()
 		return
 	}
+	if len(args) == 1 && args[0] == "upgrade" {
+		os.Exit(cmdUpgrade(isConsole()))
+	}
 	if len(args) == 1 && args[0] == "lock-opencode" {
 		os.Exit(cmdLock())
 	}
@@ -57,6 +60,9 @@ func main() {
 	}
 	if code := ensureBackend(); code != 0 {
 		os.Exit(code)
+	}
+	if len(args) == 0 && isConsole() {
+		maybeOfferUpdate()
 	}
 
 	// Strict gate: every engine launch needs a fresh Discord verification.
@@ -270,6 +276,7 @@ func printHelp() {
 	fmt.Println(`  BerwinCode.exe upgrade-engine  Rebrand a new stock engine after npm upgrades`)
 	fmt.Println(`  BerwinCode.exe lock-opencode    Block the opencode command in shells`)
 	fmt.Println(`  BerwinCode.exe unlock-opencode  Restore the opencode command`)
+	fmt.Println(`  BerwinCode.exe upgrade            Check for BerwinCode updates`)
 	fmt.Println()
 	fmt.Println(`All other terminal args are proxied to the engine:`)
 	fmt.Println(`  BerwinCode.exe --model anthropic/claude-sonnet-4-5`)
