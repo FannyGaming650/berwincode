@@ -800,13 +800,17 @@ You are BERWINCODE builder. Build, fix, and verify code. Keep changes minimal an
 func toolsDir() string { return filepath.Join(berwinDataDir(), "tools") }
 
 func portableNodeExe() string {
-	// unzipRoot strips the zip top folder, so node.exe sits directly here.
-	direct := filepath.Join(toolsDir(), "node", "node.exe")
+	return stagedNodeExe(filepath.Join(toolsDir(), "node"))
+}
+
+// stagedNodeExe finds node.exe inside a node dir (both zip layouts:
+// unzipRoot strips the top folder, some layouts keep one extra level).
+func stagedNodeExe(dir string) string {
+	direct := filepath.Join(dir, "node.exe")
 	if isFile(direct) {
 		return direct
 	}
-	// Fallback: some layouts keep one extra folder level.
-	matches, _ := filepath.Glob(filepath.Join(toolsDir(), "node", "*", "node.exe"))
+	matches, _ := filepath.Glob(filepath.Join(dir, "*", "node.exe"))
 	for _, m := range matches {
 		if isFile(m) {
 			return m
@@ -858,8 +862,6 @@ func ensureNode() error {
 	if nodeInstallComplete() {
 		return nil
 	}
-	// Stale or half-extracted copy from an older build: wipe and redo cleanly.
-	_ = os.RemoveAll(filepath.Join(toolsDir(), "node"))
 	ver, err := latestLTSNode()
 	if err != nil {
 		return fmt.Errorf("could not find Node LTS version: %w", err)
@@ -872,15 +874,30 @@ func ensureNode() error {
 	fmt.Fprintf(os.Stderr, "BerwinCode: Node.js not found. Downloading %s (~35MB, one-time)...\n", ver)
 	_ = os.MkdirAll(toolsDir(), 0755)
 	tmp := filepath.Join(toolsDir(), "node.zip.tmp")
-	if err := downloadFile(zipURL, tmp); err != nil {
+	if err := downloadFileRetry(zipURL, tmp, 3); err != nil {
 		return fmt.Errorf("node download failed: %w", err)
 	}
 	fmt.Fprintln(os.Stderr, "BerwinCode: extracting Node.js...")
-	if err := unzipRoot(tmp, filepath.Join(toolsDir(), "node")); err != nil {
+	// Extract to a staging dir and only swap it in after node.exe is
+	// proven present: a crash or short zip can never leave a half install.
+	nodeDir := filepath.Join(toolsDir(), "node")
+	stageDir := filepath.Join(toolsDir(), "node.new")
+	_ = os.RemoveAll(stageDir)
+	if err := unzipRoot(tmp, stageDir); err != nil {
 		_ = os.Remove(tmp)
+		_ = os.RemoveAll(stageDir)
 		return fmt.Errorf("node extract failed: %w", err)
 	}
 	_ = os.Remove(tmp)
+	if stagedNodeExe(stageDir) == "" {
+		_ = os.RemoveAll(stageDir)
+		return fmt.Errorf("node archive had no node.exe, staged copy deleted to retry next launch")
+	}
+	_ = os.RemoveAll(nodeDir)
+	if err := os.Rename(stageDir, nodeDir); err != nil {
+		_ = os.RemoveAll(stageDir)
+		return fmt.Errorf("node install failed: %w", err)
+	}
 	if !nodeInstallComplete() {
 		_ = os.RemoveAll(filepath.Join(toolsDir(), "node"))
 		return fmt.Errorf("node extracted but looks incomplete, cleaned up to retry next launch")
@@ -946,7 +963,15 @@ func downloadFile(url, dst string) error {
 	if err != nil {
 		return err
 	}
-	defer out.Close()
+	// ok flips only after the file is proven whole: any early return
+	// deletes the partial file so a short download can never pass as done.
+	ok := false
+	defer func() {
+		out.Close()
+		if !ok {
+			_ = os.Remove(dst)
+		}
+	}()
 	total := resp.ContentLength
 	var done int64
 	buf := make([]byte, 1<<20)
@@ -975,7 +1000,32 @@ func downloadFile(url, dst string) error {
 		}
 	}
 	fmt.Fprintln(os.Stderr)
+	if total > 0 && done != total {
+		return fmt.Errorf("download incomplete: got %.1f of %.1f MB", float64(done)/1048576, float64(total)/1048576)
+	}
+	_ = out.Sync()
+	if st, serr := os.Stat(dst); serr != nil || st.Size() != done || done == 0 {
+		return fmt.Errorf("downloaded file failed size check, deleted to retry")
+	}
+	ok = true
 	return nil
+}
+
+// downloadFileRetry downloads with retries: a dropped connection deletes its
+// partial file (see downloadFile) and the next attempt starts clean.
+func downloadFileRetry(url, dst string, tries int) error {
+	var err error
+	for i := 1; i <= tries; i++ {
+		if err = downloadFile(url, dst); err == nil {
+			return nil
+		}
+		_ = os.Remove(dst)
+		if i < tries {
+			fmt.Fprintf(os.Stderr, "BerwinCode: download interrupted (%v), retrying %d/%d...\n", err, i+1, tries)
+			time.Sleep(time.Duration(i) * 2 * time.Second)
+		}
+	}
+	return err
 }
 
 func unzipRoot(zipPath, destDir string) error {
@@ -1079,7 +1129,7 @@ func downloadEngine() (string, error) {
 	fmt.Fprintf(os.Stderr, "BerwinCode: engine not found. Downloading %s %s (~170MB, one-time)...\n", name, pkgver)
 	_ = os.MkdirAll(toolsDir(), 0755)
 	tmp := filepath.Join(toolsDir(), "engine.tgz.tmp")
-	if err := downloadFile(tgzURL, tmp); err != nil {
+	if err := downloadFileRetry(tgzURL, tmp, 3); err != nil {
 		return "", fmt.Errorf("engine download failed: %w", err)
 	}
 	fmt.Fprintln(os.Stderr, "BerwinCode: extracting engine...")
@@ -1119,13 +1169,25 @@ func extractEngineTgz(tgzPath, outPath string) error {
 		if !strings.HasSuffix(name, "package/bin/opencode.exe") && !strings.HasSuffix(name, "package/bin/opencode") {
 			continue
 		}
-		out, err := os.OpenFile(outPath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0755)
+		// Write to a temp file and rename only on success: a short
+		// tgz must never leave a half engine binary behind.
+		stage := outPath + ".tmp"
+		_ = os.Remove(stage)
+		out, err := os.OpenFile(stage, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0755)
 		if err != nil {
 			return err
 		}
 		_, err = io.Copy(out, tr)
 		out.Close()
-		return err
+		if err != nil {
+			_ = os.Remove(stage)
+			return err
+		}
+		if err := os.Rename(stage, outPath); err != nil {
+			_ = os.Remove(stage)
+			return err
+		}
+		return nil
 	}
 	return fmt.Errorf("opencode binary not found in package")
 }
