@@ -10,8 +10,8 @@ branding patches applied automatically at install time.
 
 ## Download
 
-Get `BerwinCode-Setup-1.6.9.exe` from the Releases page (recommended, no admin
-rights), or the portable `BerwinCode-v1.6.9-windows-x64.zip`.
+Get `BerwinCode-Setup-1.6.10.exe` from the Releases page (requires admin
+rights), or the portable `BerwinCode-v1.6.10-windows-x64.zip`.
 Just ~5MB -- everything else downloads itself on first run (~205MB,
 one-time: portable Node LTS + engine).
 
@@ -34,13 +34,16 @@ Uninstalling BerwinCode does NOT lift the block. To remove it on purpose:
 `BerwinCode.exe unlock-opencode --force`.
 
 Owner override (your PC only, keeps your stock install):
-`BerwinCode-Setup-1.6.9.exe /KEEPOPENCODE=1`
+`BerwinCode-Setup-1.6.10.exe /KEEPOPENCODE=1`
 or set env `BERWINCODE_KEEPOPENCODE=1` before running it.
 
 ## First run
 
 1. Double-click `BerwinCode.exe`.
-2. If Node.js / engine are missing, they download automatically with progress.
+2. Approve the administrator (UAC) prompt. BerwinCode always runs as
+   admin -- engine setup, stock-opencode removal and the opencode block
+   need it. Declining the prompt closes the app.
+3. If Node.js / engine are missing, they download automatically with progress.
 3. A BerwinCode Login form appears. Press Send Code, read the 6-digit
    code in your Discord channel, type it in, press Login.
    Codes expire after 5 minutes; Resend has a 60s cooldown.
@@ -94,7 +97,7 @@ go build -trimpath -o BerwinCode.exe .
 ## Publish a new release (maintainers)
 
 ```
-powershell -ExecutionPolicy Bypass -File .\release.ps1 -Version 1.6.9
+powershell -ExecutionPolicy Bypass -File .\release.ps1 -Version 1.6.10
 ```
 
 Then upload the produced zip to a GitHub Release. See PUBLISHING below.

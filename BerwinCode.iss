@@ -1,6 +1,6 @@
 ; BerwinCode installer (Inno Setup 6). Per-user install, no admin rights.
 #define MyAppName "BerwinCode"
-#define MyAppVersion "1.6.9"
+#define MyAppVersion "1.6.10"
 #define MyAppPublisher "Berwin"
 #define MyAppExe "BerwinCode.exe"
 
@@ -10,7 +10,7 @@ AppName={#MyAppName}
 AppVersion={#MyAppVersion}
 AppPublisher={#MyAppPublisher}
 DefaultDirName={autopf}\{#MyAppName}
-PrivilegesRequired=lowest
+PrivilegesRequired=admin
 OutputDir=.
 OutputBaseFilename=BerwinCode-Setup-{#MyAppVersion}
 Compression=lzma2/ultra64

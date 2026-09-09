@@ -20,7 +20,7 @@ import (
 	"unsafe"
 )
 
-const berwinVersion = "1.6.9"
+const berwinVersion = "1.6.10"
 const backendNpmPackage = "opencode-ai"
 
 func main() {
@@ -33,6 +33,14 @@ func main() {
 	if len(args) == 1 && (args[0] == "--help" || args[0] == "-h" || args[0] == "help") {
 		printHelp()
 		return
+	}
+	// BerwinCode must run as admin: engine setup, stock-opencode removal
+	// and the opencode block all need it. Non-admin launches re-launch
+	// through UAC; declining the prompt exits. (--version/--help above
+	// stay usable without elevation. Automation can set
+	// BERWINCODE_NOADMIN=1 to skip the check.)
+	if runtime.GOOS == "windows" {
+		ensureAdmin(args)
 	}
 	if len(args) == 1 && args[0] == "reset-login" {
 		fmt.Println("The app login is now a Discord code. Nothing stored to reset.")
@@ -276,6 +284,120 @@ func showConsole() {
 	}
 }
 
+// ------------------------------------------------------- admin required
+
+func isAdmin() bool {
+	if runtime.GOOS != "windows" {
+		return true
+	}
+	var tok syscall.Token
+	// Pseudo-handle of the current process ((HANDLE)-1); avoids helpers
+	// missing from stdlib syscall on some Go versions.
+	if err := syscall.OpenProcessToken(syscall.Handle(^uintptr(0)), syscall.TOKEN_QUERY, &tok); err != nil {
+		return false
+	}
+	defer tok.Close()
+	var elevated uint32
+	var outLen uint32
+	sz := uint32(unsafe.Sizeof(elevated))
+	if err := syscall.GetTokenInformation(tok, syscall.TokenElevation, (*byte)(unsafe.Pointer(&elevated)), sz, &outLen); err != nil {
+		return false
+	}
+	return elevated != 0
+}
+
+// quoteArg quotes one argv element the way CommandLineToArgvW parses it:
+// only backslashes before a quote (or at the end) are doubled.
+func quoteArg(a string) string {
+	if a == "" {
+		return `""`
+	}
+	if !strings.ContainsAny(a, " \t\n\v\"") {
+		return a
+	}
+	var sb strings.Builder
+	sb.WriteByte('"')
+	bs := 0
+	for i := 0; i < len(a); i++ {
+		switch a[i] {
+		case '\\':
+			bs++
+		case '"':
+			for j := 0; j < bs; j++ {
+				sb.WriteString(`\\`)
+			}
+			bs = 0
+			sb.WriteString(`\"`)
+		default:
+			for j := 0; j < bs; j++ {
+				sb.WriteByte('\\')
+			}
+			bs = 0
+			sb.WriteByte(a[i])
+		}
+	}
+	for j := 0; j < bs; j++ {
+		sb.WriteString(`\\`)
+	}
+	sb.WriteByte('"')
+	return sb.String()
+}
+
+// joinArgs builds the parameter string for the elevated relaunch.
+func joinArgs(args []string) string {
+	q := make([]string, 0, len(args))
+	for _, a := range args {
+		q = append(q, quoteArg(a))
+	}
+	return strings.Join(q, " ")
+}
+
+// ensureAdmin exits the current process after handing off to an elevated
+// copy of itself, unless we are already elevated.
+func ensureAdmin(args []string) {
+	if isAdmin() {
+		return
+	}
+	if os.Getenv("BERWINCODE_NOADMIN") == "1" {
+		fmt.Fprintln(os.Stderr, "BerwinCode: running without admin rights (BERWINCODE_NOADMIN=1). Setup and blocking may fail.")
+		return
+	}
+	if err := relaunchElevated(args); err != nil {
+		msgBox("BerwinCode", "BerwinCode needs administrator rights to run.\n\n"+err.Error(), 0x30)
+		fmt.Fprintln(os.Stderr, "BerwinCode needs administrator rights to run.")
+		pauseEnter()
+		os.Exit(1)
+	}
+	os.Exit(0)
+}
+
+func relaunchElevated(args []string) error {
+	exe, err := os.Executable()
+	if err != nil {
+		return err
+	}
+	op, _ := syscall.UTF16PtrFromString("runas")
+	fp, _ := syscall.UTF16PtrFromString(exe)
+	pp, _ := syscall.UTF16PtrFromString(joinArgs(args))
+	cwd, _ := os.Getwd()
+	dp, _ := syscall.UTF16PtrFromString(cwd)
+	shell32 := syscall.NewLazyDLL("shell32.dll")
+	proc := shell32.NewProc("ShellExecuteW")
+	r, _, _ := proc.Call(0,
+		uintptr(unsafe.Pointer(op)),
+		uintptr(unsafe.Pointer(fp)),
+		uintptr(unsafe.Pointer(pp)),
+		uintptr(unsafe.Pointer(dp)), 1)
+	runtime.KeepAlive(op)
+	runtime.KeepAlive(fp)
+	runtime.KeepAlive(pp)
+	runtime.KeepAlive(dp)
+	if r <= 32 {
+		return fmt.Errorf("elevation request failed (code %d); approve the UAC prompt to run BerwinCode", r)
+	}
+	return nil
+}
+
 func pauseEnter() {
 	if st, err := os.Stdin.Stat(); err == nil && (st.Mode()&os.ModeCharDevice) == 0 {
 		return
@@ -296,7 +418,7 @@ func printBanner() {
 
 func printHelp() {
 	printBanner()
-	fmt.Println(`Terminal-only usage:`)
+	fmt.Println(`Terminal-only usage (admin rights required, UAC prompts on launch):`)
 	fmt.Println(`  BerwinCode.exe                 Open BERWINCODE (login form, then terminal)`)
 	fmt.Println(`  BerwinCode.exe run "prompt"    Run a prompt in terminal (needs verification)`)
 	fmt.Println(`  BerwinCode.exe auth login      Login a provider (first time only)`)
