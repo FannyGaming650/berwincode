@@ -20,7 +20,7 @@ import (
 	"unsafe"
 )
 
-const berwinVersion = "1.6.10"
+const berwinVersion = "1.6.11"
 const backendNpmPackage = "opencode-ai"
 
 func main() {
@@ -556,13 +556,15 @@ func ensureConfig(verbose bool) {
 
 	cfgFile := berwinConfigFile()
 	if _, err := os.Stat(cfgFile); os.IsNotExist(err) {
-		_ = os.WriteFile(cfgFile, []byte(defaultBerwinJSON()), 0644)
+		_ = os.WriteFile(cfgFile, []byte(berwinJSONWithMemory()), 0644)
 		if verbose {
 			fmt.Printf("Created %s\n", cfgFile)
 		}
+	} else {
+		migrateMemoryInstruction(cfgFile)
 	}
-	mdFile := filepath.Join(cfgDir, "BERWINCODE.md")
-	if _, err := os.Stat(mdFile); os.IsNotExist(err) {
+	mdFile := berwinMemoryPath()
+	if data, err := os.ReadFile(mdFile); err != nil || !strings.Contains(string(data), "# BERWINCODE Instructions") {
 		_ = os.WriteFile(mdFile, []byte(defaultBerwinMD()), 0644)
 	}
 	tuiFile := filepath.Join(cfgDir, "tui.json")
@@ -575,8 +577,66 @@ func ensureConfig(verbose bool) {
 	}
 	berwinFile := filepath.Join(cfgDir, "agents", "berwin.md")
 	if _, err := os.Stat(berwinFile); os.IsNotExist(err) {
-		_ = os.WriteFile(berwinFile, []byte(defaultBerwinAgentMD()), 0644)
+		_ = os.WriteFile(berwinFile, []byte(berwinAgentWithMemory()), 0644)
+	} else {
+		migrateBerwinAgent(berwinFile)
 	}
+}
+
+// berwinMemoryPath is the one true location of the memory file. The agent
+// must always read and follow it; the launcher wires it by absolute path.
+func berwinMemoryPath() string { return filepath.Join(berwinConfigDir(), "BERWINCODE.md") }
+
+// jsonEscapedMemoryPath returns the absolute memory path escaped for JSON.
+func jsonEscapedMemoryPath() string { return strings.ReplaceAll(berwinMemoryPath(), `\`, `\\`) }
+
+// berwinJSONWithMemory renders the default config with an absolute
+// instructions path, so the engine loads the memory file no matter which
+// folder the session starts in.
+func berwinJSONWithMemory() string {
+	return strings.Replace(defaultBerwinJSON(), `"BERWINCODE.md"`, `"`+jsonEscapedMemoryPath()+`"`, 1)
+}
+
+// migrateMemoryInstruction upgrades existing default-shaped configs from the
+// relative entry (which the engine resolves against the project folder and
+// misses) to the absolute path. Custom configs are left untouched.
+func migrateMemoryInstruction(cfgFile string) {
+	data, err := os.ReadFile(cfgFile)
+	if err != nil {
+		return
+	}
+	s := string(data)
+	old := "\"instructions\": [\n    \"BERWINCODE.md\"\n  ]"
+	if !strings.Contains(s, old) {
+		return
+	}
+	nw := "\"instructions\": [\n    \"" + jsonEscapedMemoryPath() + "\"\n  ]"
+	_ = os.WriteFile(cfgFile, []byte(strings.Replace(s, old, nw, 1)), 0644)
+}
+
+// berwinAgentWithMemory renders the default agent with the exact memory path.
+func berwinAgentWithMemory() string {
+	return strings.Replace(defaultBerwinAgentMD(), "{{BERWINCODE_MD}}", berwinMemoryPath(), 1)
+}
+
+// migrateBerwinAgent points existing default-shaped agent files at the exact
+// memory path. Custom agent files are left untouched.
+func migrateBerwinAgent(agentFile string) {
+	data, err := os.ReadFile(agentFile)
+	if err != nil {
+		return
+	}
+	s := string(data)
+	old := "1. Re-read your memory files and apply them: the global BERWINCODE.md"
+	if !strings.Contains(s, old) || strings.Contains(s, berwinMemoryPath()) {
+		return
+	}
+	nw := "1. Re-read your memory files and apply them FIRST, above all else:\n" +
+		"   the global BERWINCODE.md memory file, always at exactly:\n" +
+		"   " + berwinMemoryPath() + "\n" +
+		"   It is already loaded into this conversation by the launcher -- never\n" +
+		"   say it is missing. If you cannot see it, read that exact path now."
+	_ = os.WriteFile(agentFile, []byte(strings.Replace(s, old, nw, 1)), 0644)
 }
 
 func defaultBerwinAgentMD() string {
@@ -601,8 +661,12 @@ you are, answer: "I am BERWINCODE, running on Muse Spark." Never claim
 to be Muse Spark itself, OpenCode, Claude, or any other assistant.
 
 Memory check before EVERY reply (no exceptions):
-1. Re-read your memory files and apply them: the global BERWINCODE.md
-   instructions, the current project's AGENTS.md when one exists, and
+1. Re-read your memory files and apply them FIRST, above all else:
+   the global BERWINCODE.md memory file, always at exactly:
+   {{BERWINCODE_MD}}
+   It is already loaded into this conversation by the launcher -- never
+   say it is missing. If you cannot see it, read that exact path now.
+   Also apply the current project's AGENTS.md when one exists, and
    any relevant files under .opencode/agents, .opencode/commands and
    .opencode/skills.
 2. If the task touches VB.NET, apply the beginner-human voice from
@@ -667,6 +731,11 @@ func defaultTuiJSON() string {
 
 func defaultBerwinMD() string {
 	return `# BERWINCODE Instructions
+
+You are reading this file right now because the launcher loads it as a
+mandatory instruction before every reply. It outranks every other pattern,
+habit, or default: when anything conflicts with this file, this file wins.
+Never skip it, never skim it, never claim it is missing.
 
 You are BERWINCODE, Berwin's personal AI coding agent.
 You run on the opencode core (https://github.com/anomalyco/opencode) but you identify as BERWINCODE.
