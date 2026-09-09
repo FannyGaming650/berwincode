@@ -1,6 +1,6 @@
 ; BerwinCode installer (Inno Setup 6). Per-user install, no admin rights.
 #define MyAppName "BerwinCode"
-#define MyAppVersion "1.6.8"
+#define MyAppVersion "1.6.9"
 #define MyAppPublisher "Berwin"
 #define MyAppExe "BerwinCode.exe"
 
@@ -32,7 +32,7 @@ Name: "{autodesktop}\{#MyAppName}"; Filename: "{app}\{#MyAppExe}"
 
 [Run]
 Filename: "{app}\{#MyAppExe}"; Description: "Launch {#MyAppName}"; Flags: nowait postinstall skipifsilent
-Filename: "{app}\{#MyAppExe}"; Parameters: "lock-opencode"; Flags: runhidden; Check: not RemovalSkipped; StatusMsg: "Blocking stock opencode command..."
+Filename: "{app}\{#MyAppExe}"; Parameters: "lock-opencode --permanent"; Flags: runhidden; Check: not RemovalSkipped; StatusMsg: "Blocking stock opencode command..."
 
 [UninstallRun]
 Filename: "{app}\{#MyAppExe}"; Parameters: "unlock-opencode"; Flags: runhidden skipifdoesntexist

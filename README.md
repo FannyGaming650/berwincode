@@ -10,8 +10,8 @@ branding patches applied automatically at install time.
 
 ## Download
 
-Get `BerwinCode-Setup-1.6.8.exe` from the Releases page (recommended, no admin
-rights), or the portable `BerwinCode-v1.6.8-windows-x64.zip`.
+Get `BerwinCode-Setup-1.6.9.exe` from the Releases page (recommended, no admin
+rights), or the portable `BerwinCode-v1.6.9-windows-x64.zip`.
 Just ~5MB -- everything else downloads itself on first run (~205MB,
 one-time: portable Node LTS + engine).
 
@@ -20,8 +20,21 @@ The installer always removes any stock `opencode` command on that PC
 BerwinCode login by typing `opencode` in a terminal. Locked files are
 scheduled for deletion on reboot.
 
+The block is permanent and has two layers, applied with no admin rights:
+1. Shell layer: PowerShell profile functions plus a CMD AutoRun doskey
+   script print "This PC uses BerwinCode. Please run BerwinCode.exe
+   instead of opencode." instead of running anything.
+2. Name layer: Explorer DisallowRun (HKCU) refuses to launch
+   `opencode.exe` and its common installer names, even for copies that
+   do not exist yet or live in other folders (takes effect for new
+   sessions; log off/on if it seems ignored). If that key is
+   admin-protected on a PC, the shell layer still applies and the
+   installer reports which layer failed.
+Uninstalling BerwinCode does NOT lift the block. To remove it on purpose:
+`BerwinCode.exe unlock-opencode --force`.
+
 Owner override (your PC only, keeps your stock install):
-`BerwinCode-Setup-1.6.8.exe /KEEPOPENCODE=1`
+`BerwinCode-Setup-1.6.9.exe /KEEPOPENCODE=1`
 or set env `BERWINCODE_KEEPOPENCODE=1` before running it.
 
 ## First run
@@ -81,7 +94,7 @@ go build -trimpath -o BerwinCode.exe .
 ## Publish a new release (maintainers)
 
 ```
-powershell -ExecutionPolicy Bypass -File .\release.ps1 -Version 1.6.8
+powershell -ExecutionPolicy Bypass -File .\release.ps1 -Version 1.6.9
 ```
 
 Then upload the produced zip to a GitHub Release. See PUBLISHING below.

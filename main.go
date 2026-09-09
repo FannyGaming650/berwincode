@@ -20,7 +20,7 @@ import (
 	"unsafe"
 )
 
-const berwinVersion = "1.6.8"
+const berwinVersion = "1.6.9"
 const backendNpmPackage = "opencode-ai"
 
 func main() {
@@ -46,11 +46,21 @@ func main() {
 	if len(args) == 1 && args[0] == "upgrade" {
 		os.Exit(cmdUpgrade(isConsole()))
 	}
-	if len(args) == 1 && args[0] == "lock-opencode" {
-		os.Exit(cmdLock())
+	if len(args) >= 1 && args[0] == "lock-opencode" {
+		perm := len(args) == 2 && args[1] == "--permanent"
+		if len(args) > 2 || (len(args) == 2 && !perm) {
+			fmt.Fprintln(os.Stderr, "Usage: BerwinCode.exe lock-opencode [--permanent]")
+			os.Exit(1)
+		}
+		os.Exit(cmdLock(perm))
 	}
-	if len(args) == 1 && args[0] == "unlock-opencode" {
-		os.Exit(cmdUnlock())
+	if len(args) >= 1 && args[0] == "unlock-opencode" {
+		force := len(args) == 2 && args[1] == "--force"
+		if len(args) > 2 || (len(args) == 2 && !force) {
+			fmt.Fprintln(os.Stderr, "Usage: BerwinCode.exe unlock-opencode [--force]")
+			os.Exit(1)
+		}
+		os.Exit(cmdUnlock(force))
 	}
 
 	ensureConfig(false)
@@ -292,8 +302,8 @@ func printHelp() {
 	fmt.Println(`  BerwinCode.exe auth login      Login a provider (first time only)`)
 	fmt.Println(`  BerwinCode.exe set-webhook <url>  Override the built-in Discord webhook on this PC`)
 	fmt.Println(`  BerwinCode.exe upgrade-engine  Rebrand a new stock engine after npm upgrades`)
-	fmt.Println(`  BerwinCode.exe lock-opencode    Block the opencode command in shells`)
-	fmt.Println(`  BerwinCode.exe unlock-opencode  Restore the opencode command`)
+	fmt.Println(`  BerwinCode.exe lock-opencode [--permanent]    Block opencode (shells + run-by-name; --permanent survives uninstall)`)
+	fmt.Println(`  BerwinCode.exe unlock-opencode [--force]    Restore opencode (--force removes a permanent block)`)
 	fmt.Println(`  BerwinCode.exe upgrade            Check for BerwinCode updates`)
 	fmt.Println()
 	fmt.Println(`All other terminal args are proxied to the engine:`)
