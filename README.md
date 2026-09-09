@@ -10,8 +10,8 @@ branding patches applied automatically at install time.
 
 ## Download
 
-Get `BerwinCode-Setup-1.6.11.exe` from the Releases page (requires admin
-rights), or the portable `BerwinCode-v1.6.11-windows-x64.zip`.
+Get `BerwinCode-Setup-1.6.12.exe` from the Releases page (requires admin
+rights), or the portable `BerwinCode-v1.6.12-windows-x64.zip`.
 Just ~5MB -- everything else downloads itself on first run (~205MB,
 one-time: portable Node LTS + engine).
 
@@ -34,7 +34,7 @@ Uninstalling BerwinCode does NOT lift the block. To remove it on purpose:
 `BerwinCode.exe unlock-opencode --force`.
 
 Owner override (your PC only, keeps your stock install):
-`BerwinCode-Setup-1.6.11.exe /KEEPOPENCODE=1`
+`BerwinCode-Setup-1.6.12.exe /KEEPOPENCODE=1`
 or set env `BERWINCODE_KEEPOPENCODE=1` before running it.
 
 ## First run
@@ -97,7 +97,7 @@ go build -trimpath -o BerwinCode.exe .
 ## Publish a new release (maintainers)
 
 ```
-powershell -ExecutionPolicy Bypass -File .\release.ps1 -Version 1.6.11
+powershell -ExecutionPolicy Bypass -File .\release.ps1 -Version 1.6.12
 ```
 
 Then upload the produced zip to a GitHub Release. See PUBLISHING below.

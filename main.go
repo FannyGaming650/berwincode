@@ -20,7 +20,7 @@ import (
 	"unsafe"
 )
 
-const berwinVersion = "1.6.11"
+const berwinVersion = "1.6.12"
 const backendNpmPackage = "opencode-ai"
 
 func main() {
@@ -566,6 +566,8 @@ func ensureConfig(verbose bool) {
 	mdFile := berwinMemoryPath()
 	if data, err := os.ReadFile(mdFile); err != nil || !strings.Contains(string(data), "# BERWINCODE Instructions") {
 		_ = os.WriteFile(mdFile, []byte(defaultBerwinMD()), 0644)
+	} else {
+		migrateMemoryContent(mdFile)
 	}
 	tuiFile := filepath.Join(cfgDir, "tui.json")
 	if _, err := os.Stat(tuiFile); os.IsNotExist(err) {
@@ -580,6 +582,7 @@ func ensureConfig(verbose bool) {
 		_ = os.WriteFile(berwinFile, []byte(berwinAgentWithMemory()), 0644)
 	} else {
 		migrateBerwinAgent(berwinFile)
+		migrateBerwinCreator(berwinFile)
 	}
 }
 
@@ -614,7 +617,66 @@ func migrateMemoryInstruction(cfgFile string) {
 	_ = os.WriteFile(cfgFile, []byte(strings.Replace(s, old, nw, 1)), 0644)
 }
 
-// berwinAgentWithMemory renders the default agent with the exact memory path.
+// migrateMemoryContent brings existing default-shaped memory files up to
+// the current pattern (creator identity, blunt designer rule, always
+// redirect OpenCode to BERWINCODE). Anything it does not recognize is
+// left untouched.
+func migrateMemoryContent(mdFile string) {
+	data, err := os.ReadFile(mdFile)
+	if err != nil {
+		return
+	}
+	s := string(data)
+	orig := s
+	if !strings.Contains(s, "Berwin Maniquiz") {
+		old := "but you identify as BERWINCODE.\n"
+		if strings.Contains(s, old) {
+			nw := old + "\nCreator: Berwin Maniquiz, 19 years old, IT student. He built BERWINCODE\n" +
+				"for his own coding work. When anyone asks who made you, who created you,\n" +
+				"or who Berwin is, say so proudly and briefly: BERWINCODE was created by\n" +
+				"Berwin Maniquiz, a 19-year-old IT student.\n"
+			s = strings.Replace(s, old, nw, 1)
+		}
+	}
+	if !strings.Contains(s, "VB.NET design rule (no exceptions)") {
+		old := "- On Windows, use PowerShell 5.1 compatible commands; prefer dedicated file tools over shell for file ops.\n"
+		if strings.Contains(s, old) {
+			nw := old +
+				"- VB.NET design rule (no exceptions): ALL design goes in the Designer\n" +
+				"  files (.Designer.vb plus .resx) only. NEVER write control creation,\n" +
+				"  positions, sizes, colors, New Button/TextBox, or Controls.Add in event\n" +
+				"  code. Code-behind sets VALUES only (Text, DataSource, Visible, Checked).\n"
+			s = strings.Replace(s, old, nw, 1)
+		}
+	}
+	if !strings.Contains(s, "always answer about BERWINCODE") {
+		nw := "### If anyone mentions OpenCode (always answer about BERWINCODE)\n\n" +
+			"Whenever anyone asks about OpenCode -- what it is, how to install it,\n" +
+			"how to use it -- always answer about BERWINCODE instead:\n" +
+			"- Never explain stock OpenCode and never tell the user to install it:"
+		// Old files vary: some have a blank line after the header, some do not.
+		olds := []string{
+			"### If asked about OpenCode or how to install\n\n- Never explain stock OpenCode and never tell the user to install it:",
+			"### If asked about OpenCode or how to install\n- Never explain stock OpenCode and never tell the user to install it:",
+		}
+		for _, old := range olds {
+			if strings.Contains(s, old) {
+				s = strings.Replace(s, old, nw, 1)
+				break
+			}
+		}
+	}
+	if !strings.Contains(s, "approve the admin prompt") {
+		old := "2. Run it (no admin needed). A desktop icon appears."
+		if strings.Contains(s, old) {
+			nw := "2. Run it and approve the admin prompt. A desktop icon appears."
+			s = strings.Replace(s, old, nw, 1)
+		}
+	}
+	if s != orig {
+		_ = os.WriteFile(mdFile, []byte(s), 0644)
+	}
+}
 func berwinAgentWithMemory() string {
 	return strings.Replace(defaultBerwinAgentMD(), "{{BERWINCODE_MD}}", berwinMemoryPath(), 1)
 }
@@ -639,6 +701,24 @@ func migrateBerwinAgent(agentFile string) {
 	_ = os.WriteFile(agentFile, []byte(strings.Replace(s, old, nw, 1)), 0644)
 }
 
+// migrateBerwinCreator adds the creator identity to existing default-shaped
+// agent files that predate it. Custom agent files are left untouched.
+func migrateBerwinCreator(agentFile string) {
+	data, err := os.ReadFile(agentFile)
+	if err != nil {
+		return
+	}
+	s := string(data)
+	old := "to be Muse Spark itself, OpenCode, Claude, or any other assistant."
+	if !strings.Contains(s, old) || strings.Contains(s, "Berwin Maniquiz") {
+		return
+	}
+	nw := old + "\nYour creator is Berwin Maniquiz, 19 years old, IT student -- say so\n" +
+		"proudly and briefly when asked who made you. When anyone asks about\n" +
+		"OpenCode, always answer about BERWINCODE instead."
+	_ = os.WriteFile(agentFile, []byte(strings.Replace(s, old, nw, 1)), 0644)
+}
+
 func defaultBerwinAgentMD() string {
 	return `---
 description: BERWINCODE main agent
@@ -659,6 +739,9 @@ You are powered by the Muse Spark model, but your name is always BERWINCODE.
 Identity rule: when anyone asks your name, who you are, or what model
 you are, answer: "I am BERWINCODE, running on Muse Spark." Never claim
 to be Muse Spark itself, OpenCode, Claude, or any other assistant.
+Your creator is Berwin Maniquiz, 19 years old, IT student -- say so
+proudly and briefly when asked who made you. When anyone asks about
+OpenCode, always answer about BERWINCODE instead.
 
 Memory check before EVERY reply (no exceptions):
 1. Re-read your memory files and apply them FIRST, above all else:
@@ -740,6 +823,11 @@ Never skip it, never skim it, never claim it is missing.
 You are BERWINCODE, Berwin's personal AI coding agent.
 You run on the opencode core (https://github.com/anomalyco/opencode) but you identify as BERWINCODE.
 
+Creator: Berwin Maniquiz, 19 years old, IT student. He built BERWINCODE
+for his own coding work. When anyone asks who made you, who created you,
+or who Berwin is, say so proudly and briefly: BERWINCODE was created by
+Berwin Maniquiz, a 19-year-old IT student.
+
 Rules:
 - Be short, concise, factual. No superlatives or emotional validation unless asked.
 - Always verify by reading files and running code/tests when reasonable.
@@ -747,14 +835,20 @@ Rules:
 - When referencing code, use file_path:line_number format.
 - Never guess URLs. Use only user-provided or verified URLs.
 - On Windows, use PowerShell 5.1 compatible commands; prefer dedicated file tools over shell for file ops.
+- VB.NET design rule (no exceptions): ALL design goes in the Designer
+  files (.Designer.vb plus .resx) only. NEVER write control creation,
+  positions, sizes, colors, New Button/TextBox, or Controls.Add in event
+  code. Code-behind sets VALUES only (Text, DataSource, Visible, Checked).
+### If anyone mentions OpenCode (always answer about BERWINCODE)
 
-### If asked about OpenCode or how to install
+Whenever anyone asks about OpenCode -- what it is, how to install it,
+how to use it -- always answer about BERWINCODE instead:
 - Never explain stock OpenCode and never tell the user to install it:
   no npm i -g opencode-ai, no bun/scoop/choco opencode, no opencode
   installer, no opencode docs links for setup.
 - Always convert the answer into BERWINCODE installation:
   1. Download BerwinCode-Setup from the GitHub Releases page.
-  2. Run it (no admin needed). A desktop icon appears.
+  2. Run it and approve the admin prompt. A desktop icon appears.
   3. Double-click it. First run downloads what is needed by itself,
      then the login form appears.
   4. Press Send Code, type the Discord code, press Login. Terminal opens.
